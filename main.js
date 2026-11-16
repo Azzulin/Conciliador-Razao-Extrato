@@ -24,7 +24,6 @@ let saindo = false;
 
 /* ---------- registro de diagnóstico ---------- */
 // Grava em <dados do app>/registro.log (no Windows: %APPDATA%\Conciliador Bancario\registro.log).
-egistro.log).
 
 const memoria = [];
 let arquivoRegistro = null;

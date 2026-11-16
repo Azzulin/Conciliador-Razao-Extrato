@@ -1,7 +1,7 @@
 {
   "name": "conciliador-razao-extrato",
   "productName": "Conciliador Bancario",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Compara o razão contábil com o extrato bancário e mostra onde estão as diferenças.",
   "main": "main.js",
   "private": true,
