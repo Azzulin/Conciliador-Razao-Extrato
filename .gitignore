@@ -1,0 +1,21 @@
+node_modules/
+dist/
+app/vendor/
+*.log
+.DS_Store
+Thumbs.db
+
+# Nunca versionar extratos/razões de clientes nem credenciais
+*.pdf
+*.ofx
+*.xlsx
+*.xls
+*.csv
+*.txt
+.env
+# ...exceto os exemplos fictícios
+!exemplos/*.pdf
+!exemplos/*.xlsx
+
+# Configuracao local do editor/assistente
+.claude/

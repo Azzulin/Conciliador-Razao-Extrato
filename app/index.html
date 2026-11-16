@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f6b5c">
+<title>Conciliador Razão × Extrato</title>
+<link rel="icon" type="image/png" sizes="192x192" href="icone-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  --bg: #f5f7f6; --surface: #ffffff; --ink: #17221f; --muted: #5d6b67; --line: #dde4e1;
+  --accent: #0f6b5c; --accent-ink: #ffffff; --accent-soft: #e3f1ee;
+  --credit: #18794e; --debit: #b4332b; --warn: #8a5a00; --warn-bg: #fdf3e1; --bad-bg: #fdf0ef; --ok-bg: #e6f4ec;
+  --info: #2c5d9e; --info-bg: #eaf1fb;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111816; --surface: #18211e; --ink: #e5ece9; --muted: #95a59f; --line: #2a3632;
+    --accent: #43b39d; --accent-ink: #08130f; --accent-soft: #1d332d;
+    --credit: #5cc98f; --debit: #f07a71; --warn: #e9b55a; --warn-bg: #3a2e17; --bad-bg: #3a1f1d; --ok-bg: #18342a;
+    --info: #8db6ee; --info-bg: #1c2a3d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111816; --surface: #18211e; --ink: #e5ece9; --muted: #95a59f; --line: #2a3632;
+  --accent: #43b39d; --accent-ink: #08130f; --accent-soft: #1d332d;
+  --credit: #5cc98f; --debit: #f07a71; --warn: #e9b55a; --warn-bg: #3a2e17; --bad-bg: #3a1f1d; --ok-bg: #18342a;
+  --info: #8db6ee; --info-bg: #1c2a3d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding: 32px 16px 48px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 24px; }
+header { display: grid; gap: 6px; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+h1 { font-size: clamp(24px, 4vw, 32px); line-height: 1.15; margin: 0; font-weight: 700; }
+h2 { font-size: 18px; margin: 0; }
+.lead { margin: 0; color: var(--muted); max-width: 75ch; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.lados { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 760px) { .lados { grid-template-columns: 1fr; } }
+.lado { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 12px; align-content: start; }
+.lado-tit { display: flex; gap: 10px; align-items: baseline; }
+.lado-tit .n { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; font-size: 14px; flex: none; }
+.lado-tit small { display: block; color: var(--muted); font-size: 13px; }
+.selo-verdade { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--credit); background: var(--ok-bg); padding: 2px 8px; border-radius: 999px; margin-left: auto; white-space: nowrap; }
+.drop {
+  border: 2px dashed var(--line); border-radius: 12px; padding: 26px 16px; display: grid; justify-items: center; gap: 6px;
+  text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
+}
+.drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.drop strong { font-size: 16px; }
+.drop span { color: var(--muted); font-size: 13px; }
+.drop svg { width: 32px; height: 32px; color: var(--accent); }
+.arquivos { display: grid; gap: 8px; }
+.arq { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; display: grid; gap: 4px; }
+.arq-l1 { display: flex; gap: 8px; align-items: center; }
+.arq-l1 .nome { font-weight: 600; overflow-wrap: anywhere; flex: 1; min-width: 0; }
+.arq .meta { color: var(--muted); }
+.arq .erro { color: var(--debit); }
+.arq .alerta { color: var(--warn); }
+.arq details summary { cursor: pointer; color: var(--accent); }
+.arq details .tab-mini { max-height: 260px; overflow: auto; margin-top: 6px; }
+.x { border: 0; background: none; color: var(--muted); font-size: 18px; line-height: 1; padding: 2px 6px; cursor: pointer; border-radius: 6px; }
+.x:hover { background: var(--bad-bg); color: var(--debit); }
+
+.opcoes { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; font-size: 14px; }
+.opcoes label { display: flex; gap: 8px; align-items: center; }
+.opcoes select { font: inherit; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.opcoes .esp { flex: 1; }
+button {
+  font: inherit; font-size: 14px; font-weight: 600; border-radius: 8px; padding: 9px 16px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+}
+button.primario { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button:hover { filter: brightness(.96); }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button:disabled { opacity: .5; cursor: default; }
+
+.aviso { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+.aviso.info { background: var(--info-bg); color: var(--info); }
+
+.cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 860px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 2px; min-width: 0; }
+.card .rot { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+.card .val { font-size: 22px; font-weight: 700; font-family: var(--font-mono); overflow-wrap: anywhere; }
+.card .sub { font-size: 12px; color: var(--muted); }
+.card.ok { background: var(--ok-bg); border-color: transparent; }
+.card.ok .val { color: var(--credit); }
+.card.bad { background: var(--bad-bg); border-color: transparent; }
+.card.bad .val { color: var(--debit); }
+
+.blocos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 860px) { .blocos { grid-template-columns: 1fr; } }
+.bloco { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.bloco p { margin: 0; font-size: 13px; color: var(--muted); }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.num, th.num { text-align: right; font-family: var(--font-mono); white-space: nowrap; }
+tr.total td { font-weight: 700; border-bottom: 0; }
+.pos { color: var(--credit); } .neg { color: var(--debit); }
+
+.filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; font-weight: 500; }
+.chip.ativo { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.chip b { font-weight: 700; margin-left: 4px; }
+.busca { font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); min-width: 220px; margin-left: auto; }
+.tabela-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+.tabela-wrap table { min-width: 900px; }
+.item { display: flex; gap: 8px; justify-content: space-between; }
+.item + .item { margin-top: 3px; padding-top: 3px; border-top: 1px dotted var(--line); }
+.item .d { color: var(--muted); font-family: var(--font-mono); white-space: nowrap; }
+.item .t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.item .v { font-family: var(--font-mono); white-space: nowrap; }
+.vazio { color: var(--muted); font-style: italic; }
+.badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.b-ok { background: var(--ok-bg); color: var(--credit); }
+.b-info { background: var(--info-bg); color: var(--info); }
+.b-warn { background: var(--warn-bg); color: var(--warn); }
+.b-bad { background: var(--bad-bg); color: var(--debit); }
+.fazer { font-size: 12.5px; max-width: 34ch; }
+.acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+.carregando { color: var(--muted); font-size: 14px; }
+footer { color: var(--muted); font-size: 12px; text-align: center; }
+
+@media print {
+  body { background: #fff; padding: 0; font-size: 11px; }
+  .lados, .opcoes, .acoes, .filtros .busca, footer, .nao-imprimir { display: none !important; }
+  .tabela-wrap { overflow: visible; border: 0; }
+  .tabela-wrap table { min-width: 0; }
+  .card, .bloco { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Conciliação bancária</div>
+    <h1>Conciliador Razão × Extrato</h1>
+    <p class="lead">Arraste o extrato bancário (ou relatório financeiro) e o razão contábil da conta Banco. O programa compara lançamento por lançamento e mostra onde estão as diferenças, considerando o <b>extrato como correto</b>. Tudo é lido no seu computador: nenhum arquivo é enviado para a internet.</p>
+  </header>
+
+  <section class="lados">
+    <div class="lado" id="lado-extrato">
+      <div class="lado-tit"><span class="n">1</span><div><h2>Extrato bancário</h2><small>ou relatório financeiro · PDF, Excel, CSV ou OFX</small></div><span class="selo-verdade">Correto</span></div>
+      <div class="drop" tabindex="0" role="button" aria-label="Escolher extrato">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0-4 4m4-4 4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+        <strong>Solte aqui o extrato</strong><span>ou clique para escolher (pode ser mais de um)</span>
+      </div>
+      <input type="file" multiple accept=".pdf,.xlsx,.xls,.xlsm,.ods,.csv,.ofx,.txt" hidden>
+      <div class="arquivos"></div>
+    </div>
+    <div class="lado" id="lado-razao">
+      <div class="lado-tit"><span class="n">2</span><div><h2>Razão contábil</h2><small>da conta Banco · PDF, Excel ou CSV</small></div></div>
+      <div class="drop" tabindex="0" role="button" aria-label="Escolher razão">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0-4 4m4-4 4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+        <strong>Solte aqui o razão</strong><span>ou clique para escolher (pode ser mais de um)</span>
+      </div>
+      <input type="file" multiple accept=".pdf,.xlsx,.xls,.xlsm,.ods,.csv,.txt" hidden>
+      <div class="arquivos"></div>
+    </div>
+  </section>
+
+  <section class="opcoes">
+    <label>Aceitar diferença de data de até
+      <select id="tol"><option value="0">0 dias</option><option value="1">1 dia</option><option value="2">2 dias</option><option value="3" selected>3 dias</option><option value="5">5 dias</option><option value="7">7 dias</option><option value="10">10 dias</option></select>
+    </label>
+    <label><input type="checkbox" id="inverter"> Inverter débito/crédito do razão</label>
+    <span class="esp"></span>
+    <button id="limpar">Limpar tudo</button>
+  </section>
+
+  <div id="avisos"></div>
+  <section id="resultado" hidden></section>
+  <footer>Os arquivos são processados apenas neste computador.</footer>
+</div>
+
+<!-- Bibliotecas: usa a cópia local (vendor/) e, se não existir, carrega da internet -->
+<script src="vendor/pdf.min.js"></script>
+<script src="vendor/pdf.worker.min.js"></script>
+<script src="vendor/xlsx.full.min.js"></script>
+<script>
+  window.__libsLocais = !!window.pdfjsLib;
+  if (!window.pdfjsLib) {
+    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"><\/script>' +
+      '<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"><\/script>');
+  }
+  if (!window.XLSX) document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>');
+</script>
+<script src="leitores-bancos.js"></script>
+<script src="leitura.js"></script>
+<script src="conciliacao.js"></script>
+<script>
+(function () {
+  "use strict";
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = window.__libsLocais
+      ? "vendor/pdf.worker.min.js"
+      : "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+  const { fmtData, fmtValor } = Conciliacao;
+  const $ = s => document.querySelector(s);
+
+  const estado = { extrato: [], razao: [], resultado: null, filtro: "pend", busca: "", inversaoAuto: false };
+
+  const TIPOS = {
+    ok: { rot: "Conciliado", cls: "b-ok" },
+    data: { rot: "Data diferente", cls: "b-info" },
+    agrupado: { rot: "Agrupado", cls: "b-info" },
+    falta: { rot: "Falta no razão", cls: "b-bad" },
+    sobra: { rot: "Não está no extrato", cls: "b-bad" },
+    valor: { rot: "Valor diferente", cls: "b-warn" },
+    sinal: { rot: "D/C invertido", cls: "b-warn" },
+    fora: { rot: "Fora do período", cls: "b-info" },
+  };
+  const PEND = ["falta", "sobra", "valor", "sinal"];
+
+  function el(tag, attrs, ...filhos) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (k === "class") e.className = v;
+      else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+      else if (v != null && v !== false) e.setAttribute(k, v === true ? "" : v);
+    }
+    for (const f of filhos.flat()) if (f != null && f !== false) e.append(f.nodeType ? f : String(f));
+    return e;
+  }
+  const valorEl = (v, extra) => el("span", { class: "mono " + (v < 0 ? "neg" : v > 0 ? "pos" : "") + (extra ? " " + extra : "") }, fmtValor(v));
+
+  /* ---------- arquivos ---------- */
+  function montarLado(lado) {
+    const box = $("#lado-" + lado), drop = box.querySelector(".drop"), input = box.querySelector("input");
+    drop.addEventListener("click", () => input.click());
+    drop.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } });
+    input.addEventListener("change", () => { adicionar(lado, [...input.files]); input.value = ""; });
+    drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+    drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+    drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); adicionar(lado, [...e.dataTransfer.files]); });
+  }
+  // Soltar fora das áreas não abre o arquivo no navegador
+  window.addEventListener("dragover", e => e.preventDefault());
+  window.addEventListener("drop", e => e.preventDefault());
+
+  async function adicionar(lado, files) {
+    for (const f of files) {
+      const item = { nome: f.name, carregando: true };
+      estado[lado].push(item); renderArquivos(lado);
+      try {
+        const buf = new Uint8Array(await f.arrayBuffer());
+        Object.assign(item, await Leitura.lerArquivo(f.name, buf, lado));
+      } catch (e) {
+        console.error(e);
+        item.erro = e.message || String(e);
+      }
+      item.carregando = false;
+      renderArquivos(lado);
+    }
+    estado.inversaoAuto = false;
+    comparar(true);
+  }
+
+  function renderArquivos(lado) {
+    const box = $("#lado-" + lado + " .arquivos");
+    box.replaceChildren(...estado[lado].map((a, i) => {
+      const linhas = [];
+      if (a.carregando) linhas.push(el("div", { class: "meta" }, "Lendo…"));
+      else if (a.erro) linhas.push(el("div", { class: "erro" }, a.erro));
+      else {
+        const datas = a.lancs.map(t => t.data);
+        linhas.push(el("div", { class: "meta" },
+          `${a.formato} · ${a.lancs.length} lançamentos · ${fmtData(datas[0])} a ${fmtData(datas[datas.length - 1])}`,
+          a.saldoFinal != null ? ` · saldo final ${fmtValor(a.saldoFinal)}` : ""));
+        if (a.saldoConfere === true) linhas.push(el("div", { class: "meta pos" }, "✔ Saldos do extrato conferem"));
+        for (const av of a.avisos || []) linhas.push(el("div", { class: "alerta" }, av));
+        linhas.push(el("details", {}, el("summary", {}, "Ver lançamentos lidos"),
+          el("div", { class: "tab-mini" }, el("table", {},
+            el("thead", {}, el("tr", {}, el("th", {}, "Data"), el("th", {}, "Histórico"), el("th", { class: "num" }, "Valor"))),
+            el("tbody", {}, a.lancs.map(t => el("tr", {}, el("td", { class: "mono" }, fmtData(t.data)), el("td", {}, t.desc), el("td", { class: "num" }, valorEl(t.valor)))))))));
+      }
+      return el("div", { class: "arq" },
+        el("div", { class: "arq-l1" }, el("span", { class: "nome" }, a.nome),
+          el("button", { class: "x", title: "Remover", "aria-label": "Remover " + a.nome, onclick: () => { estado[lado].splice(i, 1); renderArquivos(lado); comparar(true); } }, "×")),
+        linhas);
+    }));
+  }
+
+  /* ---------- comparação ---------- */
+  const lancsDe = lado => estado[lado].filter(a => a.lancs).flatMap(a => a.lancs);
+
+  function saldosLado(lado) {
+    const arqs = estado[lado].filter(a => a.lancs && a.lancs.length).slice().sort((a, b) => a.lancs[0].data.localeCompare(b.lancs[0].data));
+    if (!arqs.length) return { ini: null, fim: null };
+    return { ini: arqs[0].saldoInicial ?? null, fim: arqs[arqs.length - 1].saldoFinal ?? null };
+  }
+
+  function comparar(automatico) {
+    const ext = lancsDe("extrato"), raz = lancsDe("razao");
+    const av = $("#avisos"); av.replaceChildren();
+    if (!ext.length || !raz.length) { $("#resultado").hidden = true; estado.resultado = null; return; }
+    if (automatico && !estado.inversaoAuto) {
+      const sugere = Conciliacao.sugerirInversao(ext, raz);
+      $("#inverter").checked = sugere;
+      estado.inversaoAuto = true;
+      if (sugere) av.append(el("div", { class: "aviso info" }, "Os sinais do razão pareciam invertidos em relação ao extrato (débito/crédito trocados), então foram invertidos automaticamente. Desmarque \"Inverter débito/crédito do razão\" se não for o caso."));
+    }
+    estado.resultado = Conciliacao.conciliar(ext, raz, { tolDias: +$("#tol").value, inverterRazao: $("#inverter").checked });
+    renderResultado();
+  }
+
+  function renderResultado() {
+    const r = estado.resultado, sec = $("#resultado");
+    sec.hidden = false;
+    const qtdPend = PEND.reduce((a, k) => a + (r.porTipo[k]?.qtd || 0), 0);
+    const totalExt = r.extrato.qtd;
+    const extConc = r.grupos.filter(g => !PEND.includes(g.tipo)).reduce((a, g) => a + g.ext.length, 0);
+    const fechou = Math.abs(r.diferenca) < 0.005 && qtdPend === 0;
+
+    // saldos
+    const se = saldosLado("extrato"), sr = saldosLado("razao");
+    const inv = r.inverter ? -1 : 1;
+    if (sr.ini != null) sr.ini *= inv; if (sr.fim != null) sr.fim *= inv;
+
+    const cards = el("div", { class: "cards" },
+      el("div", { class: "card" }, el("span", { class: "rot" }, "Movimento do extrato"), el("span", { class: "val" }, fmtValor(r.extrato.liquido)),
+        el("span", { class: "sub" }, `${r.extrato.qtd} lanç. · ${fmtData(r.extrato.inicio)} a ${fmtData(r.extrato.fim)}`)),
+      el("div", { class: "card" }, el("span", { class: "rot" }, "Movimento do razão"), el("span", { class: "val" }, fmtValor(r.razao.liquido)),
+        el("span", { class: "sub" }, `${r.razao.qtd} lanç. no período` + (r.fora.length ? ` · ${r.fora.length} fora do período` : ""))),
+      el("div", { class: "card " + (Math.abs(r.diferenca) < 0.005 ? "ok" : "bad") }, el("span", { class: "rot" }, "Diferença (extrato − razão)"), el("span", { class: "val" }, fmtValor(r.diferenca)),
+        el("span", { class: "sub" }, Math.abs(r.diferenca) < 0.005 ? "Movimento confere" : "Movimento não confere")),
+      el("div", { class: "card " + (qtdPend ? "bad" : "ok") }, el("span", { class: "rot" }, "Pendências"), el("span", { class: "val" }, String(qtdPend)),
+        el("span", { class: "sub" }, `${extConc} de ${totalExt} lançamentos do extrato conciliados`)));
+
+    // composição da diferença
+    const linhaComp = (k, txt) => r.porTipo[k] ? el("tr", {}, el("td", {}, txt, el("span", { class: "sub" }, ` (${r.porTipo[k].qtd})`)), el("td", { class: "num" }, valorEl(r.porTipo[k].dif))) : null;
+    const comp = el("div", { class: "bloco" }, el("h2", {}, "De onde vem a diferença"),
+      el("table", {}, el("tbody", {},
+        linhaComp("falta", "Lançamentos do extrato que faltam no razão"),
+        linhaComp("sobra", "Lançamentos do razão que não estão no extrato"),
+        linhaComp("valor", "Lançamentos com valor diferente"),
+        linhaComp("sinal", "Lançamentos com débito/crédito invertido"),
+        qtdPend ? null : el("tr", {}, el("td", { colspan: 2, class: "pos" }, "Nenhuma pendência encontrada.")),
+        el("tr", { class: "total" }, el("td", {}, "Total da diferença do movimento"), el("td", { class: "num" }, valorEl(r.diferenca))))),
+      el("p", {}, "Valor positivo: o extrato tem mais do que o razão (falta lançar). Negativo: o razão tem a mais."));
+
+    // saldos
+    let blocoSaldo;
+    if (se.fim != null || sr.fim != null) {
+      const dif = (a, b) => a != null && b != null ? valorEl(Math.round((a - b) * 100) / 100) : "—";
+      const v = x => x != null ? valorEl(x) : "—";
+      const difIni = se.ini != null && sr.ini != null ? Math.round((se.ini - sr.ini) * 100) / 100 : null;
+      blocoSaldo = el("div", { class: "bloco" }, el("h2", {}, "Saldos"),
+        el("table", {},
+          el("thead", {}, el("tr", {}, el("th", {}, ""), el("th", { class: "num" }, "Extrato"), el("th", { class: "num" }, "Razão"), el("th", { class: "num" }, "Diferença"))),
+          el("tbody", {},
+            el("tr", {}, el("td", {}, "Saldo inicial"), el("td", { class: "num" }, v(se.ini)), el("td", { class: "num" }, v(sr.ini)), el("td", { class: "num" }, dif(se.ini, sr.ini))),
+            el("tr", {}, el("td", {}, "Movimento"), el("td", { class: "num" }, v(r.extrato.liquido)), el("td", { class: "num" }, v(r.razao.liquido)), el("td", { class: "num" }, valorEl(r.diferenca))),
+            el("tr", { class: "total" }, el("td", {}, "Saldo final"), el("td", { class: "num" }, v(se.fim)), el("td", { class: "num" }, v(sr.fim)), el("td", { class: "num" }, dif(se.fim, sr.fim))))),
+        difIni ? el("p", { class: "neg" }, `O saldo inicial já vem com diferença de ${fmtValor(difIni)}: parte da diferença é de períodos anteriores e não aparece nas pendências deste período.`) : null,
+        (() => {
+          if (se.fim == null || sr.fim == null || se.ini == null || sr.ini == null) return null;
+          const resto = Math.round(((se.fim - sr.fim) - (se.ini - sr.ini) - r.diferenca) * 100) / 100;
+          return Math.abs(resto) >= 0.01 ? el("p", {}, `Outros ${fmtValor(resto)} da diferença de saldo vêm de lançamentos do razão fora do período do extrato` + (r.fora.length ? ` (veja "Fora do período").` : " ou de linhas que não foram lidas.")) : null;
+        })(),
+        sr.fim == null ? el("p", {}, "O razão não informou saldo; só o movimento foi comparado.") : null);
+    } else {
+      blocoSaldo = el("div", { class: "bloco" }, el("h2", {}, "Saldos"), el("p", {}, "Os arquivos não informaram saldos; a comparação foi feita pelo movimento do período."));
+    }
+
+    // filtros e tabela
+    const contagem = k => k === "pend" ? qtdPend : k === "conc" ? r.grupos.filter(g => !PEND.includes(g.tipo)).length : k === "fora" ? r.fora.length : k === "todos" ? r.grupos.length : (r.porTipo[k]?.qtd || 0);
+    const FILTROS = [["pend", "Pendências"], ["falta", "Falta no razão"], ["sobra", "Não está no extrato"], ["valor", "Valor diferente"], ["sinal", "D/C invertido"], ["conc", "Conciliados"], ["fora", "Fora do período"], ["todos", "Todos"]];
+    const filtros = el("div", { class: "filtros" },
+      FILTROS.filter(([k]) => ["pend", "conc", "todos"].includes(k) || contagem(k)).map(([k, rot]) =>
+        el("button", { class: "chip" + (estado.filtro === k ? " ativo" : ""), onclick: () => { estado.filtro = k; renderResultado(); } }, rot, el("b", {}, String(contagem(k))))),
+      el("input", { class: "busca", type: "search", placeholder: "Buscar histórico ou valor…", value: estado.busca, oninput: e => { estado.busca = e.target.value; renderTabela(); } }));
+
+    const acoes = el("div", { class: "acoes" },
+      el("button", { class: "primario", onclick: exportarExcel }, "Baixar relatório em Excel"),
+      el("button", { onclick: () => window.print() }, "Imprimir / salvar em PDF"));
+
+    const titulo = el("div", { class: "filtros" }, el("h2", {}, fechou ? "✔ Razão e extrato conferem" : "Diferenças encontradas"), el("span", { class: "esp", style: "flex:1" }), acoes);
+    sec.replaceChildren(el("div", { class: "wrap", style: "gap:16px" }, titulo, cards, el("div", { class: "blocos" }, comp, blocoSaldo), filtros, el("div", { class: "tabela-wrap", id: "tabela" })));
+    renderTabela();
+  }
+
+  function gruposFiltrados() {
+    const r = estado.resultado, f = estado.filtro;
+    let gs;
+    if (f === "fora") gs = r.fora.map(t => ({ tipo: "fora", ext: [], raz: [t], dif: 0, nota: "Lançamento do razão fora do período do extrato: não entrou na comparação." }));
+    else if (f === "pend") gs = r.grupos.filter(g => PEND.includes(g.tipo));
+    else if (f === "conc") gs = r.grupos.filter(g => !PEND.includes(g.tipo));
+    else if (f === "todos") gs = r.grupos;
+    else gs = r.grupos.filter(g => g.tipo === f);
+    const b = Leitura.norm(estado.busca);
+    if (b) gs = gs.filter(g => g.ext.concat(g.raz).some(t => Leitura.norm(t.desc).includes(b) || fmtValor(t.valor).includes(b) || fmtData(t.data).includes(b)));
+    return gs;
+  }
+
+  function renderTabela() {
+    const gs = gruposFiltrados();
+    const itens = lista => lista.length
+      ? lista.map(t => el("div", { class: "item" }, el("span", { class: "d" }, fmtData(t.data).slice(0, 5)), el("span", { class: "t" }, t.desc), el("span", { class: "v " + (t.valor < 0 ? "neg" : "pos") }, fmtValor(t.valor))))
+      : el("span", { class: "vazio" }, "—");
+    const LIM = 1500;
+    const corpo = gs.slice(0, LIM).map(g => el("tr", {},
+      el("td", {}, el("span", { class: "badge " + TIPOS[g.tipo].cls }, TIPOS[g.tipo].rot)),
+      el("td", {}, itens(g.ext)),
+      el("td", {}, itens(g.raz)),
+      el("td", { class: "num" }, Math.abs(g.dif) < 0.005 ? "" : valorEl(g.dif)),
+      el("td", { class: "fazer" }, g.nota)));
+    $("#tabela").replaceChildren(el("table", {},
+      el("thead", {}, el("tr", {}, el("th", {}, "Situação"), el("th", {}, "Extrato (correto)"), el("th", {}, "Razão"), el("th", { class: "num" }, "Diferença"), el("th", {}, "O que fazer"))),
+      el("tbody", {}, corpo.length ? corpo : el("tr", {}, el("td", { colspan: 5, class: "vazio" }, "Nada aqui."))),
+      gs.length > LIM ? el("tfoot", {}, el("tr", {}, el("td", { colspan: 5, class: "vazio" }, `Mostrando ${LIM} de ${gs.length}. O relatório em Excel traz todos.`))) : null));
+  }
+
+  /* ---------- exportar ---------- */
+  function exportarExcel() {
+    const r = estado.resultado;
+    if (!window.XLSX) { alert("O gerador de Excel não carregou."); return; }
+    const dt = d => d ? new Date(Date.UTC(+d.slice(0, 4), +d.slice(4, 6) - 1, +d.slice(6, 8), 12)) : "";
+    const se = saldosLado("extrato"), sr = saldosLado("razao");
+    const inv = r.inverter ? -1 : 1;
+    const resumo = [
+      ["Conciliação Razão × Extrato"],
+      ["Gerado em", new Date().toLocaleString("pt-BR")],
+      ["Período do extrato", `${fmtData(r.extrato.inicio)} a ${fmtData(r.extrato.fim)}`],
+      ["Arquivos do extrato", estado.extrato.map(a => a.nome).join(", ")],
+      ["Arquivos do razão", estado.razao.map(a => a.nome).join(", ")],
+      ["Tolerância de data (dias)", r.tol],
+      ["Sinais do razão invertidos", r.inverter ? "Sim" : "Não"],
+      [],
+      ["", "Extrato", "Razão", "Diferença"],
+      ["Saldo inicial", se.ini ?? "", sr.ini != null ? sr.ini * inv : "", se.ini != null && sr.ini != null ? Math.round((se.ini - sr.ini * inv) * 100) / 100 : ""],
+      ["Entradas", r.extrato.entradas, r.razao.entradas, Math.round((r.extrato.entradas - r.razao.entradas) * 100) / 100],
+      ["Saídas", r.extrato.saidas, r.razao.saidas, Math.round((r.extrato.saidas - r.razao.saidas) * 100) / 100],
+      ["Movimento", r.extrato.liquido, r.razao.liquido, r.diferenca],
+      ["Saldo final", se.fim ?? "", sr.fim != null ? sr.fim * inv : "", se.fim != null && sr.fim != null ? Math.round((se.fim - sr.fim * inv) * 100) / 100 : ""],
+      [],
+      ["Composição da diferença", "Qtd", "Valor"],
+      ...[["falta", "Faltam no razão"], ["sobra", "Não estão no extrato"], ["valor", "Valor diferente"], ["sinal", "D/C invertido"]].map(([k, t]) => [t, r.porTipo[k]?.qtd || 0, r.porTipo[k]?.dif || 0]),
+      ["Total", "", r.diferenca],
+    ];
+    const cab = ["Situação", "Data extrato", "Histórico extrato", "Valor extrato", "Data razão", "Histórico razão", "Valor razão", "Diferença", "O que fazer"];
+    const linhasGrupo = gs => {
+      const out = [cab];
+      for (const g of gs) {
+        const n = Math.max(g.ext.length, g.raz.length, 1);
+        for (let i = 0; i < n; i++) {
+          const e = g.ext[i], z = g.raz[i];
+          out.push([i ? "" : TIPOS[g.tipo].rot, e ? dt(e.data) : "", e ? e.desc : "", e ? e.valor : "", z ? dt(z.data) : "", z ? z.desc : "", z ? z.valor : "", i ? "" : (Math.abs(g.dif) < 0.005 ? "" : g.dif), i ? "" : g.nota]);
+        }
+      }
+      return out;
+    };
+    const lidos = lado => [["Data", "Histórico", "Valor", "Arquivo"], ...lancsDe(lado).map(t => [dt(t.data), t.desc, t.valor, t.arquivo])];
+    const wb = XLSX.utils.book_new();
+    const add = (nome, aoa, larg) => {
+      const ws = XLSX.utils.aoa_to_sheet(aoa, { cellDates: true, dateNF: "dd/mm/yyyy" });
+      for (const k of Object.keys(ws)) {
+        const c = ws[k];
+        if (k[0] === "!" || !c) continue;
+        if (c.t === "n") c.z = "#,##0.00;[Red]-#,##0.00";
+        if (c.t === "d") c.z = "dd/mm/yyyy";
+      }
+      ws["!cols"] = larg.map(w => ({ wch: w }));
+      XLSX.utils.book_append_sheet(wb, ws, nome);
+    };
+    const W = [18, 11, 40, 14, 11, 40, 14, 12, 60];
+    add("Resumo", resumo, [34, 16, 16, 16]);
+    add("Pendências", linhasGrupo(r.grupos.filter(g => PEND.includes(g.tipo))), W);
+    add("Conciliados", linhasGrupo(r.grupos.filter(g => !PEND.includes(g.tipo))), W);
+    if (r.fora.length) add("Fora do período", [["Data", "Histórico", "Valor", "Arquivo"], ...r.fora.map(t => [dt(t.data), t.desc, t.valor, t.arquivo])], [11, 50, 14, 30]);
+    add("Extrato lido", lidos("extrato"), [11, 60, 14, 30]);
+    add("Razão lido", lidos("razao"), [11, 60, 14, 30]);
+    const nome = `Conciliacao_${(r.extrato.inicio || "").slice(0, 6)}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    if (window.desktop && window.desktop.salvarArquivo) {
+      // Programa instalado: janela "Salvar como" e abre o relatório em seguida
+      const bytes = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+      window.desktop.salvarArquivo(nome, new Uint8Array(bytes)).then(res => {
+        if (res && res.caminho) window.desktop.abrirArquivo(res.caminho);
+      }).catch(e => alert("Não foi possível salvar o relatório: " + (e.message || e)));
+      return;
+    }
+    XLSX.writeFile(wb, nome);
+  }
+
+  /* ---------- início ---------- */
+  montarLado("extrato"); montarLado("razao");
+  $("#tol").addEventListener("change", () => comparar(false));
+  $("#inverter").addEventListener("change", () => comparar(false));
+  $("#limpar").addEventListener("click", () => { estado.extrato = []; estado.razao = []; estado.inversaoAuto = false; $("#inverter").checked = false; renderArquivos("extrato"); renderArquivos("razao"); comparar(false); });
+  if (!window.pdfjsLib || !window.XLSX) $("#avisos").append(el("div", { class: "aviso" }, "Algumas bibliotecas não carregaram. Verifique se a pasta \"vendor\" está junto deste arquivo ou se há internet."));
+
+  if (window.desktop && window.desktop.versao) window.desktop.versao().then(v => { $(".eyebrow").textContent = `Conciliação bancária · versão ${v}`; }).catch(() => {});
+
+  // Gancho para testes automáticos
+  window.__conciliador = { estado, adicionar, comparar };
+})();
+</script>
+</body>
+</html>

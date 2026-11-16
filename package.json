@@ -1,0 +1,71 @@
+{
+  "name": "conciliador-razao-extrato",
+  "productName": "Conciliador Bancario",
+  "version": "1.0.0",
+  "description": "Compara o razão contábil com o extrato bancário e mostra onde estão as diferenças.",
+  "main": "main.js",
+  "private": true,
+  "author": "Conciliador Razão x Extrato",
+  "license": "UNLICENSED",
+  "scripts": {
+    "vendor": "node scripts/copiar-vendor.js",
+    "start": "npm run vendor && electron .",
+    "dist": "npm run vendor && electron-builder --publish never",
+    "pack": "npm run vendor && electron-builder --dir --publish never",
+    "smoke": "node scripts/smoke-test.js"
+  },
+  "dependencies": {
+    "electron-updater": "6.3.9"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8",
+    "pdfjs-dist": "3.11.174",
+    "xlsx": "0.18.5"
+  },
+  "build": {
+    "appId": "br.conciliador.razao.extrato",
+    "productName": "Conciliador Bancario",
+    "artifactName": "Conciliador-Bancario-${version}-${os}-${arch}.${ext}",
+    "files": [
+      "main.js",
+      "preload.js",
+      "app/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Azzulin",
+      "repo": "Conciliador-Razao-Extrato",
+      "releaseType": "release"
+    },
+    "win": {
+      "icon": "app/icone.ico",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "portable": {
+      "artifactName": "Conciliador-Bancario-${version}-portatil.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Conciliador Razão x Extrato"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.finance"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "executableName": "conciliador-bancario",
+      "category": "Office"
+    }
+  }
+}
