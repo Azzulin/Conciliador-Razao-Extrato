@@ -6,7 +6,7 @@ Tudo roda no próprio computador: nenhum arquivo é enviado para a internet.
 
 ## Como baixar e instalar
 
-1. Abra a página **Releases** do repositório `Conciliador-Razao-Extrato`.
+1. Abra a página **[Releases](https://github.com/Azzulin/Conciliador-Razao-Extrato/releases/latest)**.
 2. Baixe o arquivo do seu sistema:
    - **Windows:** `Conciliador-Bancario-x.y.z-win-x64.exe` (instalador) ou `...-portatil.exe` (roda sem instalar)
    - **Mac:** `.dmg`
@@ -15,7 +15,7 @@ Tudo roda no próprio computador: nenhum arquivo é enviado para a internet.
 
 O programa não tem assinatura digital paga. No Windows pode aparecer "O Windows protegeu o computador": clique em **Mais informações → Executar assim mesmo**. No Mac, na primeira vez, clique com o botão direito no app → **Abrir**.
 
-**Sem instalar:** dê dois cliques em `Abrir Conciliador.bat` (abre `app/index.html` no navegador) ou use a versão web, publicada no GitHub Pages a cada envio para a `main`.
+**Sem instalar:** dê dois cliques em `Abrir Conciliador.bat` (abre `app/index.html` no navegador) ou use a versão web: **https://azzulin.github.io/Conciliador-Razao-Extrato/** (atualizada a cada envio para a `main`).
 
 ### Atualização automática
 
