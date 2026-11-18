@@ -103,6 +103,22 @@ button:disabled { opacity: .5; cursor: default; }
 .hist span { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 12.5px; }
 .copiar { padding: 2px 8px; font-size: 12px; font-weight: 600; }
 .badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.sugestao-arquivos { display: grid; gap: 12px; }
+.sug-tit p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+.sug-tit small { font-weight: 500; color: var(--muted); font-size: 13px; }
+.drop.pequeno { padding: 14px 12px; }
+.drop.pequeno svg { width: 22px; height: 22px; }
+tr.sug-linha td { background: var(--accent-soft); border-bottom: 2px solid var(--line); padding: 10px 12px; }
+.sug { display: grid; gap: 6px; }
+.sug-cab { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 13px; }
+.sug-cab b { font-size: 13px; }
+.sug-cab .origem { color: var(--muted); font-size: 12px; }
+.sug table { min-width: 0 !important; background: var(--surface); border-radius: 8px; }
+.sug td, .sug th { border-bottom: 1px solid var(--line); padding: 5px 8px; background: none !important; }
+.sug input.conta { width: 100%; min-width: 220px; font: inherit; font-size: 12.5px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.sug input.conta.vazia, .sug input.conta.invalida { border-color: var(--debit); background: var(--bad-bg); }
+.sug .dc { font-weight: 700; font-family: var(--font-mono); width: 1.5em; }
+.sug .avisos-sug { color: var(--warn); font-size: 12px; }
 .ret-lista { font-size: 12px; color: var(--warn); font-family: var(--font-mono); margin-top: 2px; }
 #n-tabela table { min-width: 1250px; }
 #n-tabela td.col-lanc { min-width: 240px; }
@@ -160,7 +176,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
 
 @media print {
   body { background: #fff; padding: 0; font-size: 11px; }
-  .lados, .opcoes, .acoes, .filtros .busca, footer, .nao-imprimir, .abas, .lead { display: none !important; }
+  .lados, .opcoes, .acoes, .filtros .busca, footer, .nao-imprimir, .abas, .lead, .sugestao-arquivos { display: none !important; }
   .tabela-wrap { overflow: visible; border: 0; }
   .tabela-wrap table { min-width: 0; }
   .card, .bloco { break-inside: avoid; }
@@ -240,6 +256,31 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     </div>
   </section>
 
+  <section class="sugestao-arquivos">
+    <div class="sug-tit"><h2>Sugestão de lançamentos <small>(opcional)</small></h2>
+      <p>Para as notas <b>não lançadas</b>, o programa sugere <b>D conta de despesa</b> (pelo tipo de despesa) e <b>C conta do fornecedor</b>; com retenções, o crédito se divide entre fornecedor (líquido) e impostos a recolher.</p></div>
+    <div class="lados">
+      <div class="lado" id="n-lado-plano">
+        <div class="lado-tit"><span class="n">3</span><div><h2>Plano de contas</h2><small>Excel, CSV ou PDF · classificação, reduzido e descrição</small></div></div>
+        <div class="drop pequeno" tabindex="0" role="button" aria-label="Escolher plano de contas">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0-4 4m4-4 4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+          <strong>Solte aqui o plano de contas</strong>
+        </div>
+        <input type="file" accept=".pdf,.xlsx,.xls,.xlsm,.ods,.csv,.txt" hidden>
+        <div class="arquivos"></div>
+      </div>
+      <div class="lado" id="n-lado-relatorio">
+        <div class="lado-tit"><span class="n">4</span><div><h2>Relatório de tipos de despesa</h2><small>Excel ou CSV · fornecedor (nome/CNPJ/nº da nota) e tipo de despesa ou conta</small></div></div>
+        <div class="drop pequeno" tabindex="0" role="button" aria-label="Escolher relatório de tipos de despesa">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0-4 4m4-4 4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+          <strong>Solte aqui o relatório</strong>
+        </div>
+        <input type="file" multiple accept=".xlsx,.xls,.xlsm,.ods,.csv,.txt" hidden>
+        <div class="arquivos"></div>
+      </div>
+    </div>
+  </section>
+
   <section class="opcoes">
     <label>Aceitar diferença de valor de até
       <select id="n-tol"><option value="0" selected>R$ 0,00</option><option value="0.05">R$ 0,05</option><option value="0.5">R$ 0,50</option><option value="1">R$ 1,00</option><option value="10">R$ 10,00</option></select>
@@ -283,6 +324,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
 <script src="conciliacao.js"></script>
 <script src="notas.js"></script>
 <script src="conferencia.js"></script>
+<script src="plano.js"></script>
 <script>
 (function () {
   "use strict";

@@ -135,6 +135,27 @@ Quando a nota foi lançada pelo valor líquido, o programa reconhece e avisa par
 O Excel traz uma coluna por imposto e a aba **Retenções**, com um histórico pronto por imposto (ex.: *IRRF retido s/ NFS-e nº 123 - CONTABIL CONSULTORIA LTDA*).
 As retenções são lidas do XML (NF-e, NFS-e nacional, ABRASF e São Paulo) e de planilhas com colunas IRRF/PIS/COFINS/CSLL/INSS/ISS retido; nos PDFs não são lidas.
 
+### Sugestão de lançamentos (notas não lançadas)
+
+Envie também, nos quadros 3 e 4 (opcionais):
+
+- **Plano de contas** (Excel, CSV ou PDF): classificação (ex.: 4.1.1.01.0001), código reduzido e descrição. Contas sintéticas e analíticas são identificadas pela coluna Tipo (S/A) ou pela própria estrutura.
+- **Relatório de tipos de despesa** (Excel ou CSV): fornecedor (nome, CNPJ e/ou nº da nota) e o tipo de despesa, ou já o código da conta.
+
+Para cada nota **não lançada**, o programa monta o lançamento:
+
+| Nota | Débito | Crédito |
+|---|---|---|
+| Entrada (compra/serviço/frete) | Conta de **despesa** do tipo de despesa | Conta do **fornecedor** (pelo nome/CNPJ; se não houver, "Fornecedores diversos") |
+| Entrada com retenções | Despesa pelo valor **bruto** | Fornecedor pelo **líquido** + IRRF / PIS-COFINS-CSLL / INSS / ISS **a recolher** |
+| Saída (venda/serviço prestado) | Conta do **cliente** | Conta de **receita** |
+
+- O tipo de despesa vem do relatório (pelo nº da nota, CNPJ ou nome do fornecedor) e é ligado à conta do plano pelo código ou pela descrição. Sem relatório, CT-e vai para fretes e NFS-e para serviços de terceiros, marcado como "confira".
+- Cada conta pode ser trocada na tela, digitando o código reduzido, a classificação ou parte do nome. A troca vale para o Excel.
+- O Excel ganha a aba **Lançamentos sugeridos**, uma linha por partida (débito, crédito, valor e histórico).
+
+Para experimentar: `exemplos/plano_contas_exemplo.xlsx` e `exemplos/tipos_despesa_exemplo.xlsx`.
+
 O CNPJ da própria empresa é detectado sozinho (o que mais aparece nas notas), para mostrar se cada nota é de **entrada** ou **saída**.
 O relatório em Excel separa as abas Não lançadas, Lançadas, A conferir, Canceladas e fora, Retenções, No razão sem nota e Razão lido.
 
@@ -154,6 +175,7 @@ app/conciliacao.js        Regras da conciliação razão × extrato
 app/notas.js              Leitura das notas fiscais (XML, ZIP, PDF, planilha)
 app/conferencia.js        Regras da conferência notas × razão
 app/notas-tela.js         Tela e relatório da aba Notas × Razão
+app/plano.js              Plano de contas, tipos de despesa e sugestão de lançamentos
 app/vendor/               Bibliotecas de PDF e Excel (gerada por `npm run vendor`)
 scripts/                  Cópia das bibliotecas, teste automático e geração dos ícones
 .github/workflows/        Instaladores, teste automático e versão web

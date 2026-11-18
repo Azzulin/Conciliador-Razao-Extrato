@@ -3,7 +3,7 @@
   "use strict";
   const $ = s => document.querySelector(s);
   const { fmtData, fmtValor } = Conciliacao;
-  const estado = { razao: [], notas: [], resultado: null, filtro: "nao", busca: "" };
+  const estado = { razao: [], notas: [], plano: [], relatorio: [], ajustes: {}, resultado: null, filtro: "nao", busca: "" };
 
   const SIT = {
     nao: { rot: "Não lançada", cls: "b-bad" },
@@ -88,12 +88,15 @@
     // Muitos XMLs soltos viram um só item na lista
     const grupo = lado === "notas" && files.length > 3 ? { nome: `${files.length} arquivos`, carregando: true, notas: [], cancelamentos: new Set(), erros: [], qtdArquivos: 0 } : null;
     if (grupo) { estado.notas.push(grupo); render(lado); }
+    if (lado === "plano") { estado.plano = []; files = files.slice(0, 1); }
     for (const f of files) {
       const item = grupo || { nome: f.name, carregando: true };
       if (!grupo) { estado[lado].push(item); render(lado); }
       try {
         const buf = new Uint8Array(await f.arrayBuffer());
         if (lado === "razao") Object.assign(item, await Leitura.lerArquivo(f.name, buf, "razao"));
+        else if (lado === "plano") item.plano = await Plano.lerPlano(f.name, buf);
+        else if (lado === "relatorio") item.itens = Plano.lerRelatorio(f.name, buf);
         else {
           const r = await Notas.lerArquivoNotas(f.name, buf);
           if (grupo) { grupo.notas.push(...r.notas); r.cancelamentos.forEach(c => grupo.cancelamentos.add(c)); grupo.erros.push(...r.erros); grupo.qtdArquivos += r.qtdArquivos; }
@@ -116,7 +119,14 @@
       const linhas = [];
       if (a.carregando) linhas.push(el("div", { class: "meta" }, "Lendo…"));
       else if (a.erro) linhas.push(el("div", { class: "erro" }, a.erro));
-      else if (lado === "razao") {
+      else if (lado === "plano") {
+        const p = item_plano(a);
+        linhas.push(el("div", { class: "meta" }, `${p.contas.length} contas · ${p.analiticas.length} analíticas`));
+        linhas.push(tabelaMini(["Reduzido", "Classificação", "Conta", "Tipo"], p.contas.map(c => [c.reduzido, c.classif, c.nome, c.tipo]), "Ver contas lidas"));
+      } else if (lado === "relatorio") {
+        linhas.push(el("div", { class: "meta" }, `${a.itens.length} linha(s) de tipo de despesa`));
+        linhas.push(tabelaMini(["Fornecedor", "CNPJ", "Nº nota", "Tipo / conta"], a.itens.map(it => [it.nome, fmtCnpj(it.cnpj), it.numero, it.conta || it.tipo]), "Ver linhas lidas"));
+      } else if (lado === "razao") {
         const d = a.lancs.map(t => t.data);
         linhas.push(el("div", { class: "meta" }, `${a.formato} · ${a.lancs.length} lançamentos · ${fmtData(d[0])} a ${fmtData(d[d.length - 1])}`));
         for (const av of a.avisos || []) linhas.push(el("div", { class: "alerta" }, av));
@@ -140,6 +150,54 @@
       el("div", { class: "tab-mini" }, el("table", {},
         el("thead", {}, el("tr", {}, cab.map((c, i) => el("th", { class: i === cab.length - 1 ? "num" : "" }, c)))),
         el("tbody", {}, linhas.slice(0, 2000).map(l => el("tr", {}, l.map((c, i) => el("td", { class: i === l.length - 1 ? "num" : "" }, c))))))));
+  }
+
+  /* ---------- sugestão de lançamentos ---------- */
+  const item_plano = a => a.plano;
+  const planoAtual = () => { const a = estado.plano.find(p => p.plano); return a ? a.plano : null; };
+  const relatorioAtual = () => estado.relatorio.filter(a => a.itens).flatMap(a => a.itens);
+  const chaveNota = x => x.nota.chave || `${x.nota.modelo}|${x.nota.emitCnpj}|${x.nota.numero}|${x.nota.serie}`;
+  function sugestao(x, modelo) {
+    const plano = planoAtual();
+    if (!plano || x.situacao !== "nao") return null;
+    const s = Plano.sugerir(plano, relatorioAtual(), x, historico(x, modelo), imp => historicoRetencao(x, imp));
+    // ajustes feitos na tela: débito vale para todas as partidas; crédito é por partida
+    const k = chaveNota(x), aj = estado.ajustes;
+    if (aj[k + "|d"] !== undefined) { const c = plano.porId.get(aj[k + "|d"]) || null; s.partidas.forEach(p => { p.debito = c; }); s.origemDebito = "escolhida por você"; }
+    s.partidas.forEach((p, i) => { if (aj[k + "|" + i + "|c"] !== undefined) p.credito = plano.porId.get(aj[k + "|" + i + "|c"]) || null; });
+    s.avisos = s.avisos.filter(av => !(/Defina a conta de despesa/.test(av) && s.partidas[0].debito));
+    return s;
+  }
+  function resolverConta(texto) {
+    const plano = planoAtual(); if (!plano) return null;
+    const t = String(texto || "").trim(); if (!t) return null;
+    const exata = plano.analiticas.find(c => c.rotulo === t);
+    if (exata) return exata;
+    const cod = t.split(/[\s·-]+/)[0];
+    return plano.analiticas.find(c => c.reduzido === cod || c.classif === cod) || null;
+  }
+  function inputConta(conta, aoMudar) {
+    const inp = el("input", { class: "conta" + (conta ? "" : " vazia"), list: "dl-contas", value: conta ? conta.rotulo : "", placeholder: "Definir conta (digite código ou nome)…", spellcheck: "false" });
+    inp.addEventListener("change", () => {
+      if (!inp.value.trim()) { aoMudar(null); return; }
+      const c = resolverConta(inp.value);
+      if (!c) { inp.classList.add("invalida"); inp.title = "Conta não encontrada entre as analíticas do plano"; return; }
+      aoMudar(c.id);
+    });
+    return inp;
+  }
+  function blocoSugestao(x, s) {
+    const k = chaveNota(x);
+    const mudar = (chave, v) => { estado.ajustes[chave] = v; renderTabela(); };
+    const origem = `débito: ${s.origemDebito} · crédito: ${s.origemCredito}`;
+    return el("div", { class: "sug" },
+      el("div", { class: "sug-cab" }, el("b", {}, "Lançamento sugerido"), el("span", { class: "origem" }, origem)),
+      el("table", {}, el("tbody", {}, s.partidas.map((p, i) => el("tr", {},
+        el("td", { class: "dc" }, "D"), el("td", {}, i === 0 ? inputConta(p.debito, v => mudar(k + "|d", v)) : el("span", { class: "sub" }, p.debito ? p.debito.rotulo : "(mesma conta de despesa)")),
+        el("td", { class: "dc" }, "C"), el("td", {}, inputConta(p.credito, v => mudar(k + "|" + i + "|c", v))),
+        el("td", { class: "num" }, valorEl(p.valor)),
+        el("td", {}, el("span", { class: "sub" }, p.historico)))))),
+      s.avisos.length ? el("div", { class: "avisos-sug" }, s.avisos.join(" ")) : null);
   }
 
   /* ---------- conferência ---------- */
@@ -188,8 +246,17 @@
     const avisoRet = comRet.length ? el("div", { class: "aviso" }, el("b", {}, `${comRet.length} nota(s) com retenção. `),
       `Federais (IRRF, PIS, COFINS, CSLL, INSS): R$ ${fmtValor(fed)} · Municipal (ISS retido): R$ ${fmtValor(somaRet("ISS"))}. `,
       "Confira se as retenções foram lançadas nas contas de impostos a recolher. Use o filtro \"Com retenções\".") : null;
+    let avisoSug = null;
+    if (nao && planoAtual()) {
+      const m = modeloHist();
+      const sugs = r.resultados.filter(x => x.situacao === "nao").map(x => sugestao(x, m));
+      const ok = sugs.filter(s => s.partidas.every(p => p.debito && p.credito)).length;
+      avisoSug = el("div", { class: "aviso info" }, el("b", {}, `Lançamentos sugeridos para ${sugs.length} nota(s) não lançada(s): `), `${ok} com todas as contas definidas, ${sugs.length - ok} com conta a definir. Eles aparecem embaixo de cada nota no filtro "Não lançadas" e na aba "Lançamentos sugeridos" do Excel.`);
+    } else if (nao) {
+      avisoSug = el("div", { class: "aviso info" }, "Para receber sugestões de lançamento das notas não lançadas, envie o plano de contas (quadro 3) e, se tiver, o relatório de tipos de despesa (quadro 4).");
+    }
     const per = r.periodo ? el("p", { class: "lead", style: "font-size:13px" }, `Período do razão: ${fmtData(r.periodo[0])} a ${fmtData(r.periodo[1])}. Notas emitidas depois do fim do razão aparecem como "Fora do período".`) : null;
-    sec.replaceChildren(el("div", { class: "wrap", style: "gap:16px" }, titulo, cards, avisoRet, per, filtros, el("div", { class: "tabela-wrap", id: "n-tabela" })));
+    sec.replaceChildren(el("div", { class: "wrap", style: "gap:16px" }, titulo, cards, avisoRet, avisoSug, per, filtros, el("div", { class: "tabela-wrap", id: "n-tabela" })));
     renderTabela();
   }
 
@@ -214,9 +281,12 @@
     const lancsEl = ls => ls.length ? ls.map(t => el("div", { class: "item" }, el("span", { class: "d" }, fmtData(t.data).slice(0, 5)), el("span", { class: "t" }, (t.doc ? t.doc + " · " : "") + t.desc), el("span", { class: "v" }, fmtValor(t.valor)))) : el("span", { class: "vazio" }, "—");
     const LIM = 1500;
     const modelo = modeloHist();
-    tab.replaceChildren(el("table", {},
+    const plano = planoAtual();
+    const lista = plano ? el("datalist", { id: "dl-contas" }, plano.analiticas.map(c => el("option", { value: c.rotulo }))) : null;
+    const comSug = x => { const s = sugestao(x, modelo); return s ? el("tr", { class: "sug-linha" }, el("td", { colspan: 8 }, blocoSugestao(x, s))) : null; };
+    tab.replaceChildren(lista || "", el("table", {},
       el("thead", {}, el("tr", {}, el("th", {}, "Situação"), el("th", {}, "Nota"), el("th", {}, "Emissão"), el("th", {}, "Participante"), el("th", { class: "num" }, "Valor"), el("th", {}, "Lançamento no razão"), el("th", {}, "Histórico sugerido"), el("th", {}, "Observação"))),
-      el("tbody", {}, l.length ? l.slice(0, LIM).map(x => el("tr", {},
+      el("tbody", {}, l.length ? l.slice(0, LIM).flatMap(x => [el("tr", {},
         el("td", {}, el("div", { class: "badges" }, el("span", { class: "badge " + SIT[x.situacao].cls }, SIT[x.situacao].rot),
           x.nota.retFederal ? el("span", { class: "badge b-warn", title: "Retenção federal" }, "Ret. federal") : null,
           x.nota.retMunicipal ? el("span", { class: "badge b-warn", title: "ISS retido" }, "ISS retido") : null)),
@@ -228,7 +298,7 @@
           temRet(x.nota) ? el("div", { class: "sub" }, "líquido " + fmtValor(x.nota.liquido)) : null),
         el("td", { class: "col-lanc" }, lancsEl(x.lancs)),
         el("td", { class: "col-hist" }, (() => { const h = historico(x, modelo); const b = el("button", { class: "copiar", title: "Copiar histórico" }, "Copiar"); b.addEventListener("click", () => copiar(h, b)); return el("div", { class: "hist" }, el("span", {}, h), b); })()),
-        el("td", { class: "fazer" }, x.obs))) : el("tr", {}, el("td", { colspan: 8, class: "vazio" }, "Nada aqui."))),
+        el("td", { class: "fazer" }, x.obs)), comSug(x)].filter(Boolean)) : el("tr", {}, el("td", { colspan: 8, class: "vazio" }, "Nada aqui."))),
       l.length > LIM ? el("tfoot", {}, el("tr", {}, el("td", { colspan: 8, class: "vazio" }, `Mostrando ${LIM} de ${l.length}. O relatório em Excel traz todas.`))) : null));
   }
 
@@ -290,6 +360,17 @@
       add("Retenções", linhasRet, [16, 11, 34, 19, 18, 11, 10, 13, 60]);
     }
     if (r.semArquivo.length) add("No razão sem nota", [["Data", "Doc", "Histórico", "Valor", "Arquivo"], ...r.semArquivo.map(t => [dt(t.data), t.doc || "", t.desc, t.valor, t.arquivo])], [11, 10, 60, 14, 30]);
+    if (planoAtual()) {
+      const sl = [["Data", "Nota", "Participante", "CNPJ/CPF", "Partida", "Débito - classificação", "Débito - reduzido", "Débito - conta", "Crédito - classificação", "Crédito - reduzido", "Crédito - conta", "Valor", "Histórico", "Origem da conta de débito", "Avisos"]];
+      for (const x of por(["nao"])) {
+        const s = sugestao(x, modelo); if (!s) continue;
+        s.partidas.forEach((p, i) => sl.push([dt(x.nota.data), nomeNota(x.nota), x.part.nome, fmtCnpj(x.part.cnpj || ""), p.papel === "principal" ? (x.tipo === "Saída" ? "Venda/serviço" : "Despesa × fornecedor") : p.papel + " retido",
+          p.debito ? p.debito.classif : "", p.debito ? p.debito.reduzido : "", p.debito ? p.debito.nome : "DEFINIR",
+          p.credito ? p.credito.classif : "", p.credito ? p.credito.reduzido : "", p.credito ? p.credito.nome : "DEFINIR",
+          p.valor, p.historico, i ? "" : s.origemDebito, i ? "" : s.avisos.join(" ")]));
+      }
+      add("Lançamentos sugeridos", sl, [11, 16, 32, 19, 20, 16, 9, 32, 16, 9, 32, 13, 55, 30, 45]);
+    }
     add("Razão lido", [["Data", "Doc", "Histórico", "Valor", "Arquivo"], ...lancsRazao().map(t => [dt(t.data), t.doc || "", t.desc, t.valor, t.arquivo])], [11, 10, 60, 14, 30]);
     const nome = `Conferencia_Notas_${new Date().toISOString().slice(0, 10)}.xlsx`;
     if (window.desktop && window.desktop.salvarArquivo) {
@@ -302,12 +383,12 @@
   }
 
   /* ---------- início ---------- */
-  montarLado("razao"); montarLado("notas");
+  montarLado("razao"); montarLado("notas"); montarLado("plano"); montarLado("relatorio");
   try { $("#n-hist").value = localStorage.getItem("modeloHistorico") || MODELO_PADRAO; } catch { $("#n-hist").value = MODELO_PADRAO; }
   $("#n-hist").addEventListener("input", () => { try { localStorage.setItem("modeloHistorico", $("#n-hist").value); } catch { /* sem armazenamento */ } if (estado.resultado) renderTabela(); });
   $("#n-hist-padrao").addEventListener("click", () => { $("#n-hist").value = MODELO_PADRAO; $("#n-hist").dispatchEvent(new Event("input")); });
   $("#n-tol").addEventListener("change", conferir);
   $("#n-dias").addEventListener("change", conferir);
-  $("#n-limpar").addEventListener("click", () => { estado.razao = []; estado.notas = []; render("razao"); render("notas"); conferir(); });
-  window.__notas = { estado, adicionar, conferir, abrirAba, historico, modeloHist };
+  $("#n-limpar").addEventListener("click", () => { estado.razao = []; estado.notas = []; estado.plano = []; estado.relatorio = []; estado.ajustes = {}; ["razao", "notas", "plano", "relatorio"].forEach(render); conferir(); });
+  window.__notas = { estado, adicionar, conferir, abrirAba, historico, modeloHist, sugestao };
 })();
