@@ -1,4 +1,5 @@
-// Leitura dos arquivos (Excel, CSV, PDF e OFX) para uma lista única de lançamentos.
+// Leitura do razão (Excel, CSV, PDF) para uma lista única de lançamentos.
+// Copiado do Conciliador Razão × Extrato; aqui também guarda o número do documento (doc).
 // Convenção de sinal em TODO o sistema: valor positivo = entrou dinheiro no banco, negativo = saiu.
 //   Extrato:  crédito = entrada (+), débito = saída (−)
 //   Razão da conta Banco (ativo): débito = entrada (+), crédito = saída (−)
@@ -273,7 +274,11 @@
         if (RE_DATA.test(ws[i].s)) { data = parseData(ws[i].s, anoPadrao); if (data) { iData = i; break; } }
       }
       const valores = ws.map((w, i) => ({ w, i })).filter(o => o.i !== iData && RE_VALOR.test(o.w.s));
-      const descr = ws.filter((w, i) => i !== iData && !RE_VALOR.test(w.s)).map(w => w.s).join(" ").trim().replace(/^(\d+\s+)+(?=\D)/, "");
+      const descrBruta = ws.filter((w, i) => i !== iData && !RE_VALOR.test(w.s)).map(w => w.s).join(" ").trim();
+      // Números soltos no início (lote, documento) vão para "doc"; o histórico fica limpo
+      const mDoc = descrBruta.match(/^((?:\d+\s+)+)(?=\D)/);
+      const docPdf = mDoc ? mDoc[1].trim() : "";
+      const descr = mDoc ? descrBruta.slice(mDoc[0].length) : descrBruta;
       const nd = norm(descr);
 
       if (IGNORAR.test(nd)) {
@@ -334,7 +339,7 @@
         if (Math.abs(Math.abs(delta) - Math.abs(mov)) < 0.011) mov = delta;
       }
       if (saldo != null) { saldoAnt = saldo; saldoFinal = saldo; }
-      ultimo = { data, desc: descr || "(sem histórico)", valor: r2(mov) };
+      ultimo = { data, desc: descr || "(sem histórico)", valor: r2(mov), doc: docPdf };
       if (saldo != null) ultimo.saldoApos = saldo;
       lancs.push(ultimo); ultimaData = data; contCont = 0;
     }
@@ -403,5 +408,5 @@
     return r;
   }
 
-  window.Leitura = { lerArquivo, parseData, parseValor, norm };
+  window.Leitura = { lerArquivo, parseData, parseValor, norm, linhasPdf };
 })();

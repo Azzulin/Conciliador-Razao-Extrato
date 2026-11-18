@@ -1,6 +1,9 @@
 # Conciliador Razão × Extrato
 
-Compara o **razão contábil da conta Banco** com o **extrato bancário** (ou relatório financeiro) e mostra onde estão as diferenças. O extrato é sempre considerado o correto.
+Duas conferências num só programa:
+
+- **Razão × Extrato:** compara o razão da conta Banco com o extrato bancário (ou relatório financeiro) e mostra onde estão as diferenças. O extrato é sempre considerado o correto.
+- **Notas × Razão:** confere se as notas fiscais (XML, ZIP, PDF ou planilha) foram lançadas no razão.
 
 Tudo roda no próprio computador: nenhum arquivo é enviado para a internet.
 
@@ -86,6 +89,40 @@ npm run dist       # gera o instalador em dist/
 python scripts/gerar-icones.py   # refaz os ícones
 ```
 
+## Aba Notas × Razão
+
+Confere se as notas fiscais foram lançadas no razão e mostra as **lançadas** e as **não lançadas**.
+
+1. Clique na aba **Notas × Razão**.
+2. Solte o **razão** no quadro 1 (fornecedores, clientes, compras, vendas, despesas… pode ser mais de uma conta).
+3. Solte as **notas** no quadro 2: XMLs (pode soltar centenas de uma vez), um **ZIP** com os XMLs, PDFs de DANFE/NFS-e ou uma planilha com a lista de notas.
+
+| Notas aceitas | Observação |
+|---|---|
+| NF-e e NFC-e (XML) | Lê número, série, emissão, emitente, destinatário, total e duplicatas |
+| CT-e (XML) | Usa o tomador do serviço como participante |
+| NFS-e (XML) | Padrão nacional, ABRASF (maioria das prefeituras) e São Paulo. Considera valor bruto e líquido |
+| Eventos de cancelamento (XML) | A nota passa a constar como cancelada |
+| DANFE / NFS-e em PDF | Leitura aproximada (número e emitente vêm da chave de acesso). Prefira o XML |
+| Planilha de notas | Precisa das colunas Número (ou Chave) e Valor |
+
+Como o programa decide:
+
+| Situação | Quando |
+|---|---|
+| Lançada | O número da nota aparece no histórico ou na coluna de documento (ex.: "NF 1234", "NF-e 1234", "Doc 1234") **e** o valor confere, inclusive em parcelas que somam o total |
+| Valor diferente | O número aparece, mas o valor lançado é outro (avisa possível inversão de dígitos) |
+| Provável | Sem número no histórico, mas mesmo valor, data próxima e o nome/CNPJ do participante no histórico |
+| Não lançada | Nada encontrado |
+| Cancelada e lançada | Nota cancelada com lançamento no razão: estornar |
+| Fora do período | Emitida depois do fim do razão |
+| No razão sem nota | O razão cita uma "NF" cujo arquivo não foi enviado |
+
+O CNPJ da própria empresa é detectado sozinho (o que mais aparece nas notas), para mostrar se cada nota é de **entrada** ou **saída**.
+O relatório em Excel separa as abas Não lançadas, Lançadas, A conferir, Canceladas e fora, No razão sem nota e Razão lido.
+
+Para experimentar: `exemplos/razao_notas_exemplo.xlsx` + `exemplos/notas_exemplo.zip` + `exemplos/danfe_exemplo.pdf`.
+
 ## Estrutura
 
 ```
@@ -96,7 +133,10 @@ app/index.html            Tela e relatório
 app/atualizacao.html      Janela "Procurando atualizações" ao abrir
 app/leitura.js            Leitura de Excel, CSV, PDF e OFX
 app/leitores-bancos.js    Leitores de extrato por banco (vindos do Conversor OFX)
-app/conciliacao.js        Regras de comparação
+app/conciliacao.js        Regras da conciliação razão × extrato
+app/notas.js              Leitura das notas fiscais (XML, ZIP, PDF, planilha)
+app/conferencia.js        Regras da conferência notas × razão
+app/notas-tela.js         Tela e relatório da aba Notas × Razão
 app/vendor/               Bibliotecas de PDF e Excel (gerada por `npm run vendor`)
 scripts/                  Cópia das bibliotecas, teste automático e geração dos ícones
 .github/workflows/        Instaladores, teste automático e versão web

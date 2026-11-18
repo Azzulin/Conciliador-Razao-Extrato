@@ -1,6 +1,6 @@
 // Processo principal do app desktop (Electron).
 // Ao iniciar, procura uma versão nova por alguns segundos; se houver, baixa, instala e reinicia.
-// Depois abre a interface (app/index.html), que compara razão e extrato e salva o relatório em Excel.
+// Depois abre a interface (app/index.html): conciliação razão × extrato e conferência de notas × razão.
 //
 // Regra importante: sempre abrir a janela principal ANTES de fechar a janela de atualização.
 // Se as duas ficarem fechadas ao mesmo tempo, o Windows encerra o programa.
@@ -291,10 +291,10 @@ async function verificarSmoke(win) {
     await new Promise((r) => setTimeout(r, 3000)); // o defeito antigo fechava o programa logo depois de abrir
     const visivel = !win.isDestroyed() && win.isVisible();
     const estado = win.isDestroyed() ? null : await win.webContents.executeJavaScript(
-      "({ pdf: !!window.pdfjsLib, excel: !!window.XLSX, libsLocais: !!window.__libsLocais, conciliador: !!window.__conciliador," +
+      "({ pdf: !!window.pdfjsLib, excel: !!window.XLSX, zip: !!window.JSZip, libsLocais: !!window.__libsLocais, conciliador: !!window.__conciliador, notas: !!window.__notas," +
       " desktop: !!(window.desktop && window.desktop.salvarArquivo), titulo: document.title })"
     );
-    const ok = !!(visivel && estado && estado.pdf && estado.excel && estado.libsLocais && estado.conciliador && estado.desktop);
+    const ok = !!(visivel && estado && estado.pdf && estado.excel && estado.zip && estado.libsLocais && estado.conciliador && estado.notas && estado.desktop);
     terminarSmoke(ok, { visivel, estado });
   } catch (e) {
     terminarSmoke(false, { erro: texto(e) });

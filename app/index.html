@@ -88,6 +88,13 @@ button:hover { filter: brightness(.96); }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 button:disabled { opacity: .5; cursor: default; }
 
+.abas { display: flex; gap: 8px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.abas button { border: 0; border-bottom: 3px solid transparent; border-radius: 8px 8px 0 0; background: none; padding: 10px 16px 8px; display: grid; gap: 0; text-align: left; color: var(--muted); }
+.abas button b { font-size: 15px; color: var(--ink); }
+.abas button span { font-size: 12px; font-weight: 500; }
+.abas button[aria-selected="true"] { border-bottom-color: var(--accent); background: var(--surface); }
+.abas button[aria-selected="true"] b { color: var(--accent); }
+.modo { display: grid; gap: 24px; }
 .aviso { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
 .aviso.info { background: var(--info-bg); color: var(--info); }
 
@@ -139,7 +146,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
 
 @media print {
   body { background: #fff; padding: 0; font-size: 11px; }
-  .lados, .opcoes, .acoes, .filtros .busca, footer, .nao-imprimir { display: none !important; }
+  .lados, .opcoes, .acoes, .filtros .busca, footer, .nao-imprimir, .abas, .lead { display: none !important; }
   .tabela-wrap { overflow: visible; border: 0; }
   .tabela-wrap table { min-width: 0; }
   .card, .bloco { break-inside: avoid; }
@@ -149,10 +156,17 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Conciliação bancária</div>
+    <div class="eyebrow">Conciliação contábil</div>
     <h1>Conciliador Razão × Extrato</h1>
-    <p class="lead">Arraste o extrato bancário (ou relatório financeiro) e o razão contábil da conta Banco. O programa compara lançamento por lançamento e mostra onde estão as diferenças, considerando o <b>extrato como correto</b>. Tudo é lido no seu computador: nenhum arquivo é enviado para a internet.</p>
   </header>
+
+  <nav class="abas" role="tablist" aria-label="Tipo de conferência">
+    <button role="tab" id="aba-extrato" aria-selected="true" aria-controls="modo-extrato"><b>Razão × Extrato</b><span>Conciliação bancária</span></button>
+    <button role="tab" id="aba-notas" aria-selected="false" aria-controls="modo-notas"><b>Notas × Razão</b><span>Notas fiscais lançadas</span></button>
+  </nav>
+
+  <div id="modo-extrato" class="modo" role="tabpanel" aria-labelledby="aba-extrato">
+  <p class="lead">Arraste o extrato bancário (ou relatório financeiro) e o razão contábil da conta Banco. O programa compara lançamento por lançamento e mostra onde estão as diferenças, considerando o <b>extrato como correto</b>. Tudo é lido no seu computador: nenhum arquivo é enviado para a internet.</p>
 
   <section class="lados">
     <div class="lado" id="lado-extrato">
@@ -186,6 +200,48 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
 
   <div id="avisos"></div>
   <section id="resultado" hidden></section>
+  </div>
+
+  <div id="modo-notas" class="modo" role="tabpanel" aria-labelledby="aba-notas" hidden>
+  <p class="lead">Arraste o razão contábil (fornecedores, clientes, compras, vendas, despesas…) e os arquivos das notas fiscais. O programa confere nota por nota se ela foi lançada, pelo <b>número da nota no histórico</b> e pelo <b>valor</b>, e mostra as lançadas e as não lançadas. Tudo é lido no seu computador.</p>
+
+  <section class="lados">
+    <div class="lado" id="n-lado-razao">
+      <div class="lado-tit"><span class="n">1</span><div><h2>Razão contábil</h2><small>uma ou mais contas · PDF, Excel ou CSV</small></div></div>
+      <div class="drop" tabindex="0" role="button" aria-label="Escolher razão">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0-4 4m4-4 4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+        <strong>Solte aqui o razão</strong><span>ou clique para escolher (pode ser mais de um)</span>
+      </div>
+      <input type="file" multiple accept=".pdf,.xlsx,.xls,.xlsm,.ods,.csv,.txt" hidden>
+      <div class="arquivos"></div>
+    </div>
+    <div class="lado" id="n-lado-notas">
+      <div class="lado-tit"><span class="n">2</span><div><h2>Notas fiscais</h2><small>XML, ZIP com XMLs, PDF (DANFE/NFS-e) ou planilha de notas</small></div></div>
+      <div class="drop" tabindex="0" role="button" aria-label="Escolher notas fiscais">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0-4 4m4-4 4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+        <strong>Solte aqui as notas</strong><span>pode soltar muitos XMLs de uma vez ou o ZIP</span>
+      </div>
+      <input type="file" multiple accept=".xml,.zip,.pdf,.xlsx,.xls,.xlsm,.ods,.csv,.txt" hidden>
+      <div class="arquivos"></div>
+    </div>
+  </section>
+
+  <section class="opcoes">
+    <label>Aceitar diferença de valor de até
+      <select id="n-tol"><option value="0" selected>R$ 0,00</option><option value="0.05">R$ 0,05</option><option value="0.5">R$ 0,50</option><option value="1">R$ 1,00</option><option value="10">R$ 10,00</option></select>
+    </label>
+    <label>Procurar lançamento até
+      <select id="n-dias"><option value="30">30 dias</option><option value="60" selected>60 dias</option><option value="90">90 dias</option><option value="180">180 dias</option></select>
+      depois da emissão (quando não tem o número)
+    </label>
+    <span class="esp"></span>
+    <button id="n-limpar">Limpar tudo</button>
+  </section>
+
+  <div id="n-avisos"></div>
+  <section id="n-resultado" hidden></section>
+  </div>
+
   <footer>Os arquivos são processados apenas neste computador.</footer>
 </div>
 
@@ -193,6 +249,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/pdf.worker.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/jszip.min.js"></script>
 <script>
   window.__libsLocais = !!window.pdfjsLib;
   if (!window.pdfjsLib) {
@@ -200,10 +257,13 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
       '<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"><\/script>');
   }
   if (!window.XLSX) document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>');
+  if (!window.JSZip) document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"><\/script>');
 </script>
 <script src="leitores-bancos.js"></script>
 <script src="leitura.js"></script>
 <script src="conciliacao.js"></script>
+<script src="notas.js"></script>
+<script src="conferencia.js"></script>
 <script>
 (function () {
   "use strict";
@@ -512,5 +572,6 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
   window.__conciliador = { estado, adicionar, comparar };
 })();
 </script>
+<script src="notas-tela.js"></script>
 </body>
 </html>

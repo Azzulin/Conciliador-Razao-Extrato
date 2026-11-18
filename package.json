@@ -1,8 +1,8 @@
 {
   "name": "conciliador-razao-extrato",
   "productName": "Conciliador Bancario",
-  "version": "1.0.1",
-  "description": "Compara o razão contábil com o extrato bancário e mostra onde estão as diferenças.",
+  "version": "1.1.0",
+  "description": "Compara o razão contábil com o extrato bancário e confere se as notas fiscais foram lançadas no razão.",
   "main": "main.js",
   "private": true,
   "author": "Conciliador Razão x Extrato",
@@ -20,6 +20,7 @@
   "devDependencies": {
     "electron": "33.2.1",
     "electron-builder": "25.1.8",
+    "jszip": "3.10.1",
     "pdfjs-dist": "3.11.174",
     "xlsx": "0.18.5"
   },

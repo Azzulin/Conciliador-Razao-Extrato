@@ -1,4 +1,4 @@
-// Copia as bibliotecas de leitura de PDF e Excel para app/vendor,
+// Copia as bibliotecas de leitura de PDF, Excel e ZIP para app/vendor,
 // para o app funcionar sem internet.
 const fs = require("fs");
 const path = require("path");
@@ -11,6 +11,7 @@ const arquivos = [
   ["node_modules/pdfjs-dist/build/pdf.min.js", "pdf.min.js"],
   ["node_modules/pdfjs-dist/build/pdf.worker.min.js", "pdf.worker.min.js"],
   ["node_modules/xlsx/dist/xlsx.full.min.js", "xlsx.full.min.js"],
+  ["node_modules/jszip/dist/jszip.min.js", "jszip.min.js"],
 ];
 
 for (const [origem, nome] of arquivos) {
