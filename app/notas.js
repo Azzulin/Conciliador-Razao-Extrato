@@ -33,19 +33,63 @@
     return { cnpj: so(txt(b, "CNPJ", "Cnpj", "CPF", "Cpf")), nome: txt(b, "xNome", "RazaoSocial", "RazaoSocialPrestador", "RazaoSocialTomador", "Nome", "NomeRazaoSocial") };
   }
 
+  /* ---------- retenções ---------- */
+  // Federais: IRRF, PIS, COFINS, CSLL, INSS. Municipal: ISS retido.
+  const IMPOSTOS_FED = ["IRRF", "PIS", "COFINS", "CSLL", "INSS"];
+  function aplicarRetencoes(nota, ret) {
+    const limpo = {};
+    for (const [k, v] of Object.entries(ret)) if (v && v > 0.004) limpo[k] = Math.round(v * 100) / 100;
+    nota.ret = limpo;
+    nota.retFederal = r2(IMPOSTOS_FED.reduce((a, k) => a + (limpo[k] || 0), 0));
+    nota.retMunicipal = limpo.ISS || 0;
+    nota.liquido = nota.valor != null ? r2(nota.valor - nota.retFederal - nota.retMunicipal) : null;
+    if ((nota.retFederal || nota.retMunicipal) && nota.liquido > 0 && !nota.valoresAlt.some(v => Math.abs(v - nota.liquido) < 0.005)) nota.valoresAlt.push(nota.liquido);
+    return nota;
+  }
+  const valorDe = (el, ...nomes) => num(txt(el, ...nomes)) || 0;
+
+  function retencoesNFe(inf) {
+    const rt = achar(inf, ["retTrib"]), iss = achar(inf, ["ISSQNtot"]);
+    return {
+      IRRF: rt ? valorDe(rt, "vIRRF") : 0, PIS: rt ? valorDe(rt, "vRetPIS") : 0, COFINS: rt ? valorDe(rt, "vRetCOFINS") : 0,
+      CSLL: rt ? valorDe(rt, "vRetCSLL") : 0, INSS: rt ? valorDe(rt, "vRetPrev") : 0, ISS: iss ? valorDe(iss, "vISSRet") : 0,
+    };
+  }
+
+  function retencoesNFSe(inf) {
+    // Padrão nacional
+    if (achar(inf, ["nNFSe"])) {
+      const pc = achar(inf, ["piscofins"]);
+      const pcRetido = pc && txt(pc, "tpRetPisCofins") === "1";
+      const tpIss = txt(inf, "tpRetISSQN");
+      return {
+        IRRF: valorDe(inf, "vRetIRRF"), CSLL: valorDe(inf, "vRetCSLL"), INSS: valorDe(inf, "vRetCP"),
+        PIS: pcRetido ? valorDe(pc, "vPis") : 0, COFINS: pcRetido ? valorDe(pc, "vCofins") : 0,
+        ISS: tpIss === "2" || tpIss === "3" ? valorDe(inf, "vISSQN") : 0,
+      };
+    }
+    // ABRASF (IssRetido 1 = sim) e São Paulo (ISSRetido true)
+    const issRet = /^(1|true|s|sim)$/i.test(txt(inf, "IssRetido", "ISSRetido"));
+    return {
+      IRRF: valorDe(inf, "ValorIr", "ValorIRRF"), PIS: valorDe(inf, "ValorPis"), COFINS: valorDe(inf, "ValorCofins"),
+      CSLL: valorDe(inf, "ValorCsll"), INSS: valorDe(inf, "ValorInss"),
+      ISS: valorDe(inf, "ValorIssRetido") || (issRet ? valorDe(inf, "ValorIss") : 0),
+    };
+  }
+
   function lerNFe(inf, cancelVia) {
     const ide = achar(inf, ["ide"]);
     const mod = txt(ide, "mod");
     const emit = achar(inf, ["emit"]), dest = achar(inf, ["dest"]);
     const dups = todosDe(inf, "vDup").map(e => num(e.textContent)).filter(v => v);
     const chave = so(inf.getAttribute("Id"));
-    return {
+    return aplicarRetencoes({
       chave, modelo: MODELOS[mod] || "NF-e", numero: semZeros(txt(ide, "nNF")), serie: semZeros(txt(ide, "serie")),
       data: dataXml(txt(ide, "dhEmi", "dEmi")),
       emitCnpj: so(txt(emit, "CNPJ", "CPF")), emitNome: txt(emit, "xNome"),
       destCnpj: so(txt(dest, "CNPJ", "CPF")), destNome: txt(dest, "xNome"),
       valor: num(txt(achar(inf, ["ICMSTot"]) || inf, "vNF")), valoresAlt: dups.length > 1 ? dups : [], cancelada: cancelVia,
-    };
+    }, retencoesNFe(inf));
   }
 
   function lerCTe(inf, cancelVia) {
@@ -55,12 +99,13 @@
     const toma = txt(ide, "toma");
     const blocoToma = achar(inf, ["toma4"]) || achar(inf, [["rem", "exped", "receb", "dest"][+toma] || "dest"]);
     const t = pessoa(blocoToma);
-    return {
+    const nota = {
       chave: so(inf.getAttribute("Id")), modelo: MODELOS[txt(ide, "mod")] || "CT-e", numero: semZeros(txt(ide, "nCT")), serie: semZeros(txt(ide, "serie")),
       data: dataXml(txt(ide, "dhEmi")), emitCnpj: so(txt(emit, "CNPJ", "CPF")), emitNome: txt(emit, "xNome"),
       destCnpj: t.cnpj, destNome: t.nome, valor: num(txt(achar(inf, ["vPrest"]) || inf, "vTPrest")),
       valoresAlt: [num(txt(achar(inf, ["vPrest"]) || inf, "vRec"))].filter(v => v), cancelada: cancelVia,
     };
+    return aplicarRetencoes(nota, {});
   }
 
   // NFS-e: padrão nacional (infNFSe), ABRASF (InfNfse) e outros que seguem nomes parecidos
@@ -81,11 +126,11 @@
     let chave = "";
     if (nacional) chave = so(inf.getAttribute("Id"));
     if (!chave) chave = so(txt(inf, "ChaveNFe", "CodigoVerificacao"));
-    return {
+    return aplicarRetencoes({
       chave: chave ? "NFSE" + prest.cnpj + "-" + numero : "", modelo: "NFS-e", numero, serie: "",
       data, emitCnpj: prest.cnpj, emitNome: prest.nome, destCnpj: toma.cnpj, destNome: toma.nome,
       valor, valoresAlt: liquido && liquido !== valor ? [liquido] : [], cancelada,
-    };
+    }, retencoesNFSe(inf));
   }
 
   // Devolve { notas, cancelamentos: Set(chave) }
@@ -223,6 +268,7 @@
     ["nome", /emitente|fornecedor|cliente|participante|raz[aã]o social|^nome|prestador|tomador|destinat/],
     ["situacao", /situa[cç][aã]o|status/],
   ];
+  const COLS_RET = [["IRRF", /^(irrf|ir retido|ir$|vl\.? ir$)/], ["PIS", /^(pis|pis retido)/], ["COFINS", /^(cofins)/], ["CSLL", /^(csll)/], ["INSS", /^(inss)/], ["ISS", /^(iss retido|iss ret|issqn retido)/]];
   function lerPlanilhaNotas(buf, nomeArq) {
     const csv = /\.(csv|txt)$/i.test(nomeArq);
     const wb = XLSX.read(buf, { type: "array", raw: csv, cellDates: false, codepage: 65001 });
@@ -236,6 +282,8 @@
           for (const [k, re] of COLS) if (re.test(n)) { if (c[k] == null) c[k] = j; break; }
         });
         if ((c.numero == null && c.chave == null) || c.valor == null) continue;
+        const cr = {};
+        linhas[i].forEach((cel, j) => { const n = norm(cel); for (const [k, re] of COLS_RET) if (re.test(n) && cr[k] == null) cr[k] = j; });
         const notas = [];
         for (const row of linhas.slice(i + 1)) {
           const chave = c.chave != null ? so(row[c.chave]) : "";
@@ -251,6 +299,9 @@
             destCnpj: "", destNome: "", valor: Math.abs(pv.v), valoresAlt: [],
             cancelada: c.situacao != null && /cancel|denegad|inutiliz/i.test(String(row[c.situacao])), lista: true,
           });
+          const ret = {};
+          for (const k of Object.keys(cr)) { const pv2 = parseValor(row[cr[k]]); if (pv2) ret[k] = Math.abs(pv2.v); }
+          aplicarRetencoes(notas[notas.length - 1], ret);
         }
         if (notas.length > melhor.length) melhor = notas;
         break;
@@ -299,5 +350,5 @@
     return out;
   }
 
-  window.Notas = { lerArquivoNotas, lerXml, semZeros, so };
+  window.Notas = { lerArquivoNotas, lerXml, semZeros, so, IMPOSTOS_FED };
 })();

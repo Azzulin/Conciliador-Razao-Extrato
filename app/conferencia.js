@@ -142,6 +142,11 @@
           : { situacao: "cancelada", lancs: [], obs: "Nota cancelada e não lançada (correto)." };
       }
       if (r.situacao === "nao") r.obs = tipo === "Saída" ? "Não encontrada no razão. Lançar a venda/receita." : "Não encontrada no razão. Lançar a nota.";
+      // Lançada pelo valor líquido das retenções
+      const temRet = (nota.retFederal || 0) + (nota.retMunicipal || 0) > 0;
+      if (temRet && ["lancada", "provavel"].includes(r.situacao) && r.lancs.length === 1 && Math.abs(r.lancs[0].c - cent(nota.liquido)) <= tol) {
+        r.obs = ((r.obs ? r.obs + " " : "") + "Lançada pelo valor LÍQUIDO: confira se as retenções foram lançadas nas contas de impostos a recolher.").trim();
+      }
       for (const t of r.lancs) { if (!usados.has(t.id)) usados.set(t.id, []); usados.get(t.id).push(nota); }
       resultados.push({ nota, tipo, part, ...r });
     }

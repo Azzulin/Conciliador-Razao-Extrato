@@ -30,6 +30,36 @@
   const fmtCnpj = c => c.length === 14 ? c.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : c.length === 11 ? c.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4") : c;
   const nomeNota = n => `${n.modelo} ${n.numero}${n.serie ? "/" + n.serie : ""}`;
 
+  /* ---------- histórico sugerido ---------- */
+  const MODELO_PADRAO = "{operacao} cf. {modelo} nº {numero} - {fornecedor}";
+  function operacao(x) {
+    const m = x.nota.modelo || "", saida = x.tipo === "Saída";
+    if (/NFS/i.test(m)) return saida ? "Serviço prestado" : "Serviço tomado";
+    if (/CT-?e/i.test(m)) return saida ? "Frete prestado" : "Frete";
+    if (saida) return "Venda";
+    return x.tipo === "Entrada" ? "Compra" : "Vlr.";
+  }
+  function historico(x, modelo) {
+    const n = x.nota;
+    const forn = (x.part.nome || fmtCnpj(x.part.cnpj || "") || "").replace(/\s+/g, " ").trim();
+    const campos = {
+      operacao: operacao(x), modelo: n.modelo, numero: n.numero, serie: n.serie || "", fornecedor: forn, participante: forn,
+      cnpj: fmtCnpj(x.part.cnpj || ""), data: fmtData(n.data), valor: fmtValor(n.valor), liquido: fmtValor(n.liquido != null ? n.liquido : n.valor),
+    };
+    return (modelo || MODELO_PADRAO).replace(/\{(\w+)\}/g, (t, k) => k in campos ? campos[k] : t).replace(/\s+-\s*$/, "").replace(/\s{2,}/g, " ").trim();
+  }
+  function historicoRetencao(x, imposto) {
+    return `${imposto} retido s/ ${x.nota.modelo} nº ${x.nota.numero} - ${(x.part.nome || fmtCnpj(x.part.cnpj || "")).trim()}`;
+  }
+  const modeloHist = () => ($("#n-hist").value || "").trim() || MODELO_PADRAO;
+  const temRet = n => (n.retFederal || 0) + (n.retMunicipal || 0) > 0;
+  const textoRet = n => Object.entries(n.ret || {}).map(([k, v]) => `${k} ${fmtValor(v)}`).join(" · ");
+  function copiar(texto, botao) {
+    const ok = () => { const t = botao.textContent; botao.textContent = "Copiado"; setTimeout(() => { botao.textContent = t; }, 1200); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texto).then(ok, () => prompt("Copie o histórico:", texto));
+    else prompt("Copie o histórico:", texto);
+  }
+
   /* ---------- abas ---------- */
   function abrirAba(qual) {
     for (const k of ["extrato", "notas"]) {
@@ -142,8 +172,8 @@
       card(nao ? "bad" : "ok", "Não lançadas", nao, soma(["nao"])),
       card(conf ? "bad" : "ok", "A conferir", conf, soma(CONFERIR), "valor diferente, prováveis e canceladas lançadas"));
 
-    const FILTROS = [["nao", "Não lançadas"], ["lancada", "Lançadas"], ["divergente", "Valor diferente"], ["provavel", "Prováveis"], ["cancelada-lancada", "Canceladas e lançadas"], ["cancelada", "Canceladas"], ["fora", "Fora do período"], ["semnota", "No razão sem nota"], ["todas", "Todas"]];
-    const contagem = k => k === "todas" ? r.resultados.length : k === "semnota" ? r.semArquivo.length : (r.qtd[k] || 0);
+    const FILTROS = [["nao", "Não lançadas"], ["lancada", "Lançadas"], ["divergente", "Valor diferente"], ["provavel", "Prováveis"], ["cancelada-lancada", "Canceladas e lançadas"], ["cancelada", "Canceladas"], ["fora", "Fora do período"], ["ret", "Com retenções"], ["semnota", "No razão sem nota"], ["todas", "Todas"]];
+    const contagem = k => k === "todas" ? r.resultados.length : k === "semnota" ? r.semArquivo.length : k === "ret" ? r.resultados.filter(x => temRet(x.nota)).length : (r.qtd[k] || 0);
     const filtros = el("div", { class: "filtros" },
       FILTROS.filter(([k]) => ["nao", "lancada", "todas"].includes(k) || contagem(k)).map(([k, rot]) =>
         el("button", { class: "chip" + (estado.filtro === k ? " ativo" : ""), onclick: () => { estado.filtro = k; renderResultado(); } }, rot, el("b", {}, String(contagem(k))))),
@@ -152,15 +182,21 @@
       el("button", { class: "primario", onclick: exportar }, "Baixar relatório em Excel"),
       el("button", { onclick: () => window.print() }, "Imprimir / salvar em PDF"));
     const titulo = el("div", { class: "filtros" }, el("h2", {}, nao || conf ? "Resultado da conferência" : "✔ Todas as notas estão lançadas"), el("span", { style: "flex:1" }), acoes);
+    const comRet = r.resultados.filter(x => temRet(x.nota) && !x.nota.cancelada);
+    const somaRet = k => comRet.reduce((a, x) => a + ((x.nota.ret || {})[k] || 0), 0);
+    const fed = Notas.IMPOSTOS_FED.reduce((a, k) => a + somaRet(k), 0);
+    const avisoRet = comRet.length ? el("div", { class: "aviso" }, el("b", {}, `${comRet.length} nota(s) com retenção. `),
+      `Federais (IRRF, PIS, COFINS, CSLL, INSS): R$ ${fmtValor(fed)} · Municipal (ISS retido): R$ ${fmtValor(somaRet("ISS"))}. `,
+      "Confira se as retenções foram lançadas nas contas de impostos a recolher. Use o filtro \"Com retenções\".") : null;
     const per = r.periodo ? el("p", { class: "lead", style: "font-size:13px" }, `Período do razão: ${fmtData(r.periodo[0])} a ${fmtData(r.periodo[1])}. Notas emitidas depois do fim do razão aparecem como "Fora do período".`) : null;
-    sec.replaceChildren(el("div", { class: "wrap", style: "gap:16px" }, titulo, cards, per, filtros, el("div", { class: "tabela-wrap", id: "n-tabela" })));
+    sec.replaceChildren(el("div", { class: "wrap", style: "gap:16px" }, titulo, cards, avisoRet, per, filtros, el("div", { class: "tabela-wrap", id: "n-tabela" })));
     renderTabela();
   }
 
   function filtrados() {
     const r = estado.resultado, f = estado.filtro;
     if (f === "semnota") return r.semArquivo;
-    let l = f === "todas" ? r.resultados : r.resultados.filter(x => x.situacao === f);
+    let l = f === "todas" ? r.resultados : f === "ret" ? r.resultados.filter(x => temRet(x.nota)) : r.resultados.filter(x => x.situacao === f);
     const b = Leitura.norm(estado.busca).trim();
     if (b) l = l.filter(x => [x.nota.numero, x.part.nome, x.part.cnpj, fmtCnpj(x.part.cnpj || ""), fmtValor(x.nota.valor), fmtData(x.nota.data), ...x.lancs.map(t => t.desc)].some(s => Leitura.norm(s).includes(b)));
     return l;
@@ -177,32 +213,46 @@
     }
     const lancsEl = ls => ls.length ? ls.map(t => el("div", { class: "item" }, el("span", { class: "d" }, fmtData(t.data).slice(0, 5)), el("span", { class: "t" }, (t.doc ? t.doc + " · " : "") + t.desc), el("span", { class: "v" }, fmtValor(t.valor)))) : el("span", { class: "vazio" }, "—");
     const LIM = 1500;
+    const modelo = modeloHist();
     tab.replaceChildren(el("table", {},
-      el("thead", {}, el("tr", {}, el("th", {}, "Situação"), el("th", {}, "Nota"), el("th", {}, "Emissão"), el("th", {}, "Participante"), el("th", { class: "num" }, "Valor"), el("th", {}, "Lançamento no razão"), el("th", {}, "Observação"))),
+      el("thead", {}, el("tr", {}, el("th", {}, "Situação"), el("th", {}, "Nota"), el("th", {}, "Emissão"), el("th", {}, "Participante"), el("th", { class: "num" }, "Valor"), el("th", {}, "Lançamento no razão"), el("th", {}, "Histórico sugerido"), el("th", {}, "Observação"))),
       el("tbody", {}, l.length ? l.slice(0, LIM).map(x => el("tr", {},
-        el("td", {}, el("span", { class: "badge " + SIT[x.situacao].cls }, SIT[x.situacao].rot)),
+        el("td", {}, el("div", { class: "badges" }, el("span", { class: "badge " + SIT[x.situacao].cls }, SIT[x.situacao].rot),
+          x.nota.retFederal ? el("span", { class: "badge b-warn", title: "Retenção federal" }, "Ret. federal") : null,
+          x.nota.retMunicipal ? el("span", { class: "badge b-warn", title: "ISS retido" }, "ISS retido") : null)),
         el("td", { class: "mono" }, nomeNota(x.nota), x.nota.origem === "PDF" ? el("div", { class: "sub" }, "PDF") : null),
         el("td", { class: "mono" }, fmtData(x.nota.data)),
-        el("td", {}, x.part.nome || "—", el("div", { class: "item d" }, [fmtCnpj(x.part.cnpj || ""), x.tipo].filter(Boolean).join(" · "))),
-        el("td", { class: "num" }, valorEl(x.nota.valor)),
-        el("td", {}, lancsEl(x.lancs)),
-        el("td", { class: "fazer" }, x.obs))) : el("tr", {}, el("td", { colspan: 7, class: "vazio" }, "Nada aqui."))),
-      l.length > LIM ? el("tfoot", {}, el("tr", {}, el("td", { colspan: 7, class: "vazio" }, `Mostrando ${LIM} de ${l.length}. O relatório em Excel traz todas.`))) : null));
+        el("td", { class: "col-part" }, x.part.nome || "—", el("div", { class: "item d" }, [fmtCnpj(x.part.cnpj || ""), x.tipo].filter(Boolean).join(" · "))),
+        el("td", { class: "num" }, valorEl(x.nota.valor),
+          temRet(x.nota) ? el("div", { class: "ret-lista" }, Object.entries(x.nota.ret || {}).map(([k, v]) => el("div", {}, `${k} ${fmtValor(v)}`))) : null,
+          temRet(x.nota) ? el("div", { class: "sub" }, "líquido " + fmtValor(x.nota.liquido)) : null),
+        el("td", { class: "col-lanc" }, lancsEl(x.lancs)),
+        el("td", { class: "col-hist" }, (() => { const h = historico(x, modelo); const b = el("button", { class: "copiar", title: "Copiar histórico" }, "Copiar"); b.addEventListener("click", () => copiar(h, b)); return el("div", { class: "hist" }, el("span", {}, h), b); })()),
+        el("td", { class: "fazer" }, x.obs))) : el("tr", {}, el("td", { colspan: 8, class: "vazio" }, "Nada aqui."))),
+      l.length > LIM ? el("tfoot", {}, el("tr", {}, el("td", { colspan: 8, class: "vazio" }, `Mostrando ${LIM} de ${l.length}. O relatório em Excel traz todas.`))) : null));
   }
 
   /* ---------- relatório ---------- */
   function exportar() {
     const r = estado.resultado;
     const dt = d => d ? new Date(Date.UTC(+d.slice(0, 4), +d.slice(4, 6) - 1, +d.slice(6, 8), 12)) : "";
-    const cab = ["Situação", "Modelo", "Número", "Série", "Emissão", "Participante", "CNPJ/CPF", "Tipo", "Valor da nota", "Data lançamento", "Histórico no razão", "Valor lançado", "Arquivo do razão", "Observação", "Chave / arquivo da nota"];
+    const modelo = modeloHist();
+    const IMP = [...Notas.IMPOSTOS_FED, "ISS"];
+    const cab = ["Situação", "Modelo", "Número", "Série", "Emissão", "Participante", "CNPJ/CPF", "Tipo", "Valor da nota", "Histórico sugerido",
+      ...IMP.map(k => k === "ISS" ? "ISS retido" : k), "Total retido", "Valor líquido",
+      "Data lançamento", "Histórico no razão", "Valor lançado", "Arquivo do razão", "Observação", "Chave / arquivo da nota"];
+    const vazio = n => Array(n).fill("");
     const linhas = lista => {
       const out = [cab];
       for (const x of lista) {
         const n = Math.max(1, x.lancs.length);
         for (let i = 0; i < n; i++) {
           const t = x.lancs[i];
-          out.push(i ? ["", "", "", "", "", "", "", "", "", t ? dt(t.data) : "", t ? (t.doc ? t.doc + " · " : "") + t.desc : "", t ? t.valor : "", t ? t.arquivo : "", "", ""]
-            : [SIT[x.situacao].rot, x.nota.modelo, x.nota.numero, x.nota.serie, dt(x.nota.data), x.part.nome, fmtCnpj(x.part.cnpj || ""), x.tipo, x.nota.valor, t ? dt(t.data) : "", t ? (t.doc ? t.doc + " · " : "") + t.desc : "", t ? t.valor : "", t ? t.arquivo : "", x.obs, x.nota.chave || x.nota.arquivo]);
+          const lanc = [t ? dt(t.data) : "", t ? (t.doc ? t.doc + " · " : "") + t.desc : "", t ? t.valor : "", t ? t.arquivo : ""];
+          const ret = x.nota.ret || {}, totRet = (x.nota.retFederal || 0) + (x.nota.retMunicipal || 0);
+          out.push(i ? [...vazio(10 + IMP.length + 2), ...lanc, "", ""]
+            : [SIT[x.situacao].rot, x.nota.modelo, x.nota.numero, x.nota.serie, dt(x.nota.data), x.part.nome, fmtCnpj(x.part.cnpj || ""), x.tipo, x.nota.valor, historico(x, modelo),
+              ...IMP.map(k => ret[k] || ""), totRet || "", totRet ? x.nota.liquido : "", ...lanc, x.obs, x.nota.chave || x.nota.arquivo]);
         }
       }
       return out;
@@ -215,7 +265,7 @@
       ws["!cols"] = larg.map(w => ({ wch: w }));
       XLSX.utils.book_append_sheet(wb, ws, nome);
     };
-    const W = [18, 8, 10, 6, 11, 34, 19, 9, 14, 11, 50, 14, 24, 60, 46];
+    const W = [18, 8, 10, 6, 11, 34, 19, 9, 14, 52, 11, 11, 11, 11, 11, 11, 12, 14, 11, 50, 14, 24, 60, 46];
     const somaV = l => Math.round(l.reduce((a, x) => a + (x.nota.valor || 0), 0) * 100) / 100;
     add("Resumo", [
       ["Conferência de Notas × Razão"], ["Gerado em", new Date().toLocaleString("pt-BR")],
@@ -225,12 +275,20 @@
       ["Situação", "Quantidade", "Valor"],
       ...Object.keys(SIT).map(k => [SIT[k].rot, r.qtd[k] || 0, somaV(por([k]))]),
       ["Total", r.resultados.length, somaV(r.resultados)], [],
-      ["Lançamentos do razão que citam nota sem arquivo", r.semArquivo.length],
+      ["Lançamentos do razão que citam nota sem arquivo", r.semArquivo.length], [],
+      ["Retenções (notas não canceladas)", "Notas", "Valor"],
+      ...IMP.map(k => { const l = r.resultados.filter(x => !x.nota.cancelada && (x.nota.ret || {})[k]); return [k === "ISS" ? "ISS retido (municipal)" : k + " (federal)", l.length, Math.round(l.reduce((a, x) => a + x.nota.ret[k], 0) * 100) / 100]; }),
     ], [40, 12, 16]);
     add("Não lançadas", linhas(por(["nao"])), W);
     add("Lançadas", linhas(por(["lancada"])), W);
     add("A conferir", linhas(por(CONFERIR)), W);
     if ((r.qtd.cancelada || 0) + (r.qtd.fora || 0)) add("Canceladas e fora", linhas(por(["cancelada", "fora"])), W);
+    const comRet = r.resultados.filter(x => temRet(x.nota) && !x.nota.cancelada);
+    if (comRet.length) {
+      const linhasRet = [["Nota", "Emissão", "Participante", "CNPJ/CPF", "Situação da nota", "Imposto", "Esfera", "Valor retido", "Histórico sugerido"]];
+      for (const x of comRet) for (const k of IMP) if ((x.nota.ret || {})[k]) linhasRet.push([nomeNota(x.nota), dt(x.nota.data), x.part.nome, fmtCnpj(x.part.cnpj || ""), SIT[x.situacao].rot, k === "ISS" ? "ISS retido" : k, k === "ISS" ? "Municipal" : "Federal", x.nota.ret[k], historicoRetencao(x, k)]);
+      add("Retenções", linhasRet, [16, 11, 34, 19, 18, 11, 10, 13, 60]);
+    }
     if (r.semArquivo.length) add("No razão sem nota", [["Data", "Doc", "Histórico", "Valor", "Arquivo"], ...r.semArquivo.map(t => [dt(t.data), t.doc || "", t.desc, t.valor, t.arquivo])], [11, 10, 60, 14, 30]);
     add("Razão lido", [["Data", "Doc", "Histórico", "Valor", "Arquivo"], ...lancsRazao().map(t => [dt(t.data), t.doc || "", t.desc, t.valor, t.arquivo])], [11, 10, 60, 14, 30]);
     const nome = `Conferencia_Notas_${new Date().toISOString().slice(0, 10)}.xlsx`;
@@ -245,8 +303,11 @@
 
   /* ---------- início ---------- */
   montarLado("razao"); montarLado("notas");
+  try { $("#n-hist").value = localStorage.getItem("modeloHistorico") || MODELO_PADRAO; } catch { $("#n-hist").value = MODELO_PADRAO; }
+  $("#n-hist").addEventListener("input", () => { try { localStorage.setItem("modeloHistorico", $("#n-hist").value); } catch { /* sem armazenamento */ } if (estado.resultado) renderTabela(); });
+  $("#n-hist-padrao").addEventListener("click", () => { $("#n-hist").value = MODELO_PADRAO; $("#n-hist").dispatchEvent(new Event("input")); });
   $("#n-tol").addEventListener("change", conferir);
   $("#n-dias").addEventListener("change", conferir);
   $("#n-limpar").addEventListener("click", () => { estado.razao = []; estado.notas = []; render("razao"); render("notas"); conferir(); });
-  window.__notas = { estado, adicionar, conferir, abrirAba };
+  window.__notas = { estado, adicionar, conferir, abrirAba, historico, modeloHist };
 })();

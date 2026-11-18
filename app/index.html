@@ -95,6 +95,20 @@ button:disabled { opacity: .5; cursor: default; }
 .abas button[aria-selected="true"] { border-bottom-color: var(--accent); background: var(--surface); }
 .abas button[aria-selected="true"] b { color: var(--accent); }
 .modo { display: grid; gap: 24px; }
+.modelo-hist { flex-basis: 100%; flex-wrap: wrap; }
+.modelo-hist input { flex: 1; min-width: 220px; font: inherit; font-family: var(--font-mono); font-size: 13px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.modelo-hist button { padding: 5px 12px; }
+.ajuda { flex-basis: 100%; color: var(--muted); font-size: 12px; margin-top: -6px; }
+.hist { display: flex; gap: 6px; align-items: flex-start; }
+.hist span { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 12.5px; }
+.copiar { padding: 2px 8px; font-size: 12px; font-weight: 600; }
+.badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.ret-lista { font-size: 12px; color: var(--warn); font-family: var(--font-mono); margin-top: 2px; }
+#n-tabela table { min-width: 1250px; }
+#n-tabela td.col-lanc { min-width: 240px; }
+#n-tabela td.col-hist { min-width: 230px; }
+#n-tabela td.col-part { min-width: 170px; }
+#n-tabela td.fazer { min-width: 230px; }
 .aviso { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
 .aviso.info { background: var(--info-bg); color: var(--info); }
 
@@ -236,6 +250,11 @@ footer { color: var(--muted); font-size: 12px; text-align: center; }
     </label>
     <span class="esp"></span>
     <button id="n-limpar">Limpar tudo</button>
+    <label class="modelo-hist">Modelo do histórico
+      <input id="n-hist" type="text" spellcheck="false" aria-describedby="n-hist-ajuda">
+      <button id="n-hist-padrao" type="button" title="Voltar ao modelo padrão">Padrão</button>
+    </label>
+    <small id="n-hist-ajuda" class="ajuda">Campos: {operacao} {modelo} {numero} {serie} {fornecedor} {cnpj} {data} {valor} {liquido}</small>
   </section>
 
   <div id="n-avisos"></div>

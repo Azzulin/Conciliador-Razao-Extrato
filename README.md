@@ -118,8 +118,25 @@ Como o programa decide:
 | Fora do período | Emitida depois do fim do razão |
 | No razão sem nota | O razão cita uma "NF" cujo arquivo não foi enviado |
 
+### Histórico sugerido
+
+Cada nota ganha um histórico pronto para o lançamento, com botão **Copiar**. O padrão é:
+
+`{operacao} cf. {modelo} nº {numero} - {fornecedor}` → *Compra cf. NF-e nº 1004 - GAMA PAPELARIA ME*
+
+A operação muda conforme a nota: Compra / Venda (NF-e), Serviço tomado / Serviço prestado (NFS-e), Frete (CT-e).
+O modelo pode ser editado na tela (fica salvo) usando os campos `{operacao} {modelo} {numero} {serie} {fornecedor} {cnpj} {data} {valor} {liquido}`.
+
+### Retenções
+
+As notas com retenção ganham o selo **Ret. federal** (IRRF, PIS, COFINS, CSLL, INSS) e/ou **ISS retido** (municipal), com os valores e o líquido.
+Um aviso mostra o total retido, e o filtro **Com retenções** lista só essas notas.
+Quando a nota foi lançada pelo valor líquido, o programa reconhece e avisa para conferir as contas de impostos a recolher.
+O Excel traz uma coluna por imposto e a aba **Retenções**, com um histórico pronto por imposto (ex.: *IRRF retido s/ NFS-e nº 123 - CONTABIL CONSULTORIA LTDA*).
+As retenções são lidas do XML (NF-e, NFS-e nacional, ABRASF e São Paulo) e de planilhas com colunas IRRF/PIS/COFINS/CSLL/INSS/ISS retido; nos PDFs não são lidas.
+
 O CNPJ da própria empresa é detectado sozinho (o que mais aparece nas notas), para mostrar se cada nota é de **entrada** ou **saída**.
-O relatório em Excel separa as abas Não lançadas, Lançadas, A conferir, Canceladas e fora, No razão sem nota e Razão lido.
+O relatório em Excel separa as abas Não lançadas, Lançadas, A conferir, Canceladas e fora, Retenções, No razão sem nota e Razão lido.
 
 Para experimentar: `exemplos/razao_notas_exemplo.xlsx` + `exemplos/notas_exemplo.zip` + `exemplos/danfe_exemplo.pdf`.
 

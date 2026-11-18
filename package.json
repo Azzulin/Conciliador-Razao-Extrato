@@ -1,7 +1,7 @@
 {
   "name": "conciliador-razao-extrato",
   "productName": "Conciliador Bancario",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Compara o razão contábil com o extrato bancário e confere se as notas fiscais foram lançadas no razão.",
   "main": "main.js",
   "private": true,
